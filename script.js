@@ -233,14 +233,14 @@ function turnLeaf(leaf) {                 // shared flip visuals + timing
   leaf.style.zIndex = 300;               // lift the turning sheet above everything
   leaf.classList.add("flipping");        // enables the moving curl shading
   renderLeaves();
-  refreshMedia();                        // START now → the target video plays INSTANTLY
-                                          // (as the page is revealed, not after the flip)
+  pauseAllPageMedia();                    // silence every page video WHILE flipping, so the
+                                          // target video + voice don't start mid-turn
   playFlip();
   updateProgress();
   setTimeout(function () {
     leaf.classList.remove("flipping");
     animating = false; updateZ(); updateProgress();
-    refreshMedia();                      // re-assert once settled (idempotent safety net)
+    refreshMedia();                      // START the landed page's video + bubble ONLY now
   }, FLIP_MS + 40);
 }
 function goNext() {
@@ -440,7 +440,7 @@ cornerNext.addEventListener("click", function (e) { e.stopPropagation(); goNext(
     void L.offsetWidth;                                   // reflow so it animates FROM the dragged angle
     L.classList.add("flipping");                          // curl shading during the snap
     renderLeaves();                                       // apply .flipped + z-index immediately
-    refreshMedia();                                       // START the target video INSTANTLY
+    pauseAllPageMedia();                                  // keep all page video/voice silent during the snap
     L.style.transform = endFlipped ? "rotateY(-180deg)" : "rotateY(0deg)";
     updateProgress();
 
@@ -454,7 +454,7 @@ cornerNext.addEventListener("click", function (e) { e.stopPropagation(); goNext(
       void L.offsetWidth;                                 // commit with no transition
       L.style.transition = "";                            // restore for the next turn
       animating = false; updateProgress();
-      refreshMedia();                                     // re-assert once settled (idempotent safety net)
+      refreshMedia();                                     // START the landed page's video + voice ONLY now
     }, FLIP_MS + 40);
   }
   flipbookEl.addEventListener("pointerup", endDrag);
