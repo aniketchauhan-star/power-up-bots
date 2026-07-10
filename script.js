@@ -272,7 +272,7 @@ function turnLeaf(leaf) {                 // shared flip visuals + timing
   setTimeout(function () {
     leaf.classList.remove("flipping");
     animating = false; updateZ(); updateProgress();
-    refreshMedia();                      // START the landed page's video + bubble ONLY now
+    refreshMedia(0);                     // START the landed page's video + bubble NOW (no delay on flips)
   }, FLIP_MS + 40);
 }
 function goNext() {
@@ -327,10 +327,11 @@ function openBook() {
   // the media element so it can start instantly (and with sound) the moment its
   // page is shown — no first-play lag, no autoplay block. Reset to frame 0 after.
   primeVideos();
-  // Start the page-1 video RIGHT NOW — instantly, within the tap gesture (so it has
-  // sound) — so it is already playing as the (slow) cover swings open, instead of
-  // sitting frozen until the open finishes. No delay here (0) — page 1 plays now.
-  refreshMedia(0);
+  // The ONLY place we hold before playing: after the Start (Play) button is
+  // clicked, wait 1.5s (still within the tap's sticky activation, so audio is
+  // allowed) then start the page-1 video as the cover swings open. Ordinary page
+  // flips have NO delay — only this initial start-button play does.
+  refreshMedia(1500);
   // Once the cover has FULLY opened (the slow, dramatic hinge-open), park the cover,
   // lift the pages ABOVE it, hand over pointer events, and mark the book READY.
   setTimeout(function () {
@@ -487,7 +488,7 @@ cornerNext.addEventListener("click", function (e) { e.stopPropagation(); goNext(
       void L.offsetWidth;                                 // commit with no transition
       L.style.transition = "";                            // restore for the next turn
       animating = false; updateProgress();
-      refreshMedia();                                     // START the landed page's video + voice ONLY now
+      refreshMedia(0);                                    // START the landed page's video + voice NOW (no delay on flips)
     }, FLIP_MS + 40);
   }
   flipbookEl.addEventListener("pointerup", endDrag);
