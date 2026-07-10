@@ -61,10 +61,14 @@ const pages = [
     reveal: { video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
               hand: { left: "17.6%", top: "19.4%" } } },
-  { type: "video", src: "assets/8.mp4" },   // Page 9
-  { type: "video", src: "assets/9.mp4" },   // Page 10
-  { type: "video", src: "assets/10.mp4" },  // Page 11
-  { type: "video", src: "assets/11.mp4" },  // Page 12
+  // Page 9 — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE. Tapping it
+  // plays 9.mp4 full-page ON TOP (holds on its last frame). Flip next → 10.mp4.
+  { type: "video", src: "assets/8.mp4", activity: "reveal",
+    reveal: { video: "assets/9.mp4",
+              spot: { left: "1.5%", top: "22%", width: "21%", height: "13%" },
+              hand: { left: "11.7%", top: "28.5%" } } },
+  { type: "video", src: "assets/10.mp4" },  // Page 10
+  { type: "video", src: "assets/11.mp4" },  // Page 11
 ];
 
 /* ============================================================================
@@ -336,25 +340,91 @@ function page5Sync() {
 }
 
 /* ==========================================================================
-   VIDEO-REVEAL PAGE  (a static image whose hand-nudged hotspot reveals a video)
+   VIDEO-REVEAL PAGES  (static image whose hand-nudged hotspot reveals a video)
    --------------------------------------------------------------------------
-   Any page entry flagged `activity: "reveal"` shows its static image with ONE
-   hand nudge over a hotspot (`reveal.spot`); tapping it plays `reveal.video`
-   full-page ON TOP of the image, then returns to the image (replayable). The
-   whole thing resets whenever the reader flips away and back — same behaviour as
-   page 5, but a single tap/video instead of a three-step sequence.
+   ANY number of page entries can be flagged `activity: "reveal"`. Each shows its
+   static image with ONE hand nudge over a hotspot (`reveal.spot`); tapping it
+   plays `reveal.video` full-page ON TOP of the image. When the clip ENDS it
+   HOLDS on its last frame (no reset, no replay) for as long as the reader stays.
+   Flipping away and back rewinds it to the static image + fresh hand nudge.
 
-   Reuses page 5's generic CSS (.p5-activity / .p5-spot / .p5-hand /
-   .p5-video-overlay / .p5-video). Engine hooks: revealSync() (on settle) and
-   revealOnTurnStart() (on flip start).
+   Each reveal page gets its own independent controller (state + DOM), so several
+   can coexist (e.g. 7(1).png→7(2).mp4 and 8(1).png→8.mp4). Reuses page 5's
+   generic CSS (.p5-activity / .p5-spot / .p5-hand / .p5-video-overlay /
+   .p5-video). Engine hooks: revealSync() (on settle) and revealOnTurnStart().
    ========================================================================== */
-let rvLeafIndex = -1;                              // 0-based index of the reveal leaf
-let rvHand = null, rvSpot = null, rvOverlay = null, rvVideo = null, rvConfig = null;
-let rvIsActive = false, rvPlaying = false, rvHandTimer = null;
+const revealControllers = [];                      // one controller per reveal leaf
 
-/* Build the reveal activity DOM. Called ONCE while the reveal leaf is built. */
-function buildRevealActivity(page) {
-  rvConfig = page.reveal || {};
+function isCtrlActive(c) {
+  return !!(opened && ready && !isGameOverlayOpen && flipped === c.leafIndex);
+}
+function ctrlShowHand(c) { if (c.hand) c.hand.classList.add("show"); }
+function ctrlHideHand(c) { clearTimeout(c.handTimer); c.handTimer = null; if (c.hand) c.hand.classList.remove("show"); }
+function ctrlSpotEnabled(c, on) {
+  if (!c.spot) return;
+  c.spot.style.pointerEvents = on ? "auto" : "none";
+  c.spot.disabled = !on;
+}
+function ctrlStopVideo(c) {
+  if (c.overlay) c.overlay.classList.remove("show");
+  if (c.video) { try { c.video.pause(); c.video.removeAttribute("src"); c.video.load(); } catch (_) {} }
+  c.playing = false;
+}
+/* Tap → play the clip full-page ON TOP of the static image. */
+function ctrlClick(c) {
+  if (c.playing || c.finished || !isCtrlActive(c)) return;    // one play per visit; no replay
+  if (!c.video || !c.overlay || !c.cfg.video) return;
+  c.playing = true;
+  ctrlHideHand(c);
+  ctrlSpotEnabled(c, false);                       // freeze the hotspot while it plays
+  // If this page's base is itself a video (e.g. 8.mp4), pause it so its audio
+  // doesn't play under the revealed clip.
+  const base = leaves[c.leafIndex] && leaves[c.leafIndex].querySelector("video.page-media");
+  if (base) { try { base.pause(); } catch (_) {} }
+  c.overlay.classList.add("show");
+  try {
+    c.video.src = c.cfg.video;
+    c.video.currentTime = 0;
+    c.video.muted = false;                         // the tap is a user gesture → sound allowed
+    const p = c.video.play();
+    if (p && p.catch) p.catch(function () { c.video.muted = true; c.video.play().catch(function () {}); });
+  } catch (_) {}
+}
+/* Clip finished → HOLD on the last frame. Only a flip away+back rewinds it. */
+function ctrlEnded(c) {
+  c.playing = false;
+  c.finished = true;
+  ctrlHideHand(c);
+  if (c.video) { try { c.video.pause(); } catch (_) {} }      // stay paused on the final frame
+}
+function ctrlInit(c) {                              // page just settled → fresh start
+  ctrlHideHand(c); ctrlStopVideo(c); ctrlSpotEnabled(c, true);
+  c.finished = false;
+  c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 600);
+}
+function ctrlReset(c) { ctrlHideHand(c); ctrlStopVideo(c); ctrlSpotEnabled(c, true); c.finished = false; }
+function ctrlSync(c) {
+  const active = isCtrlActive(c);
+  if (active && !c.isActive) { c.isActive = true; ctrlInit(c); }
+  else if (!active && c.isActive) { c.isActive = false; ctrlReset(c); }
+  else if (active && c.isActive && !c.playing && !c.finished &&
+           c.hand && !c.hand.classList.contains("show")) {
+    clearTimeout(c.handTimer);
+    c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 350);
+  }
+}
+
+/* Global hooks the engine calls (fan out to every reveal page). */
+function revealSync() { revealControllers.forEach(ctrlSync); }
+function revealOnTurnStart() { revealControllers.forEach(function (c) { ctrlHideHand(c); ctrlStopVideo(c); }); }
+
+/* Build ONE reveal page's DOM + register its controller. */
+function buildRevealActivity(page, leafIndex) {
+  const c = {
+    leafIndex: leafIndex, cfg: page.reveal || {},
+    hand: null, spot: null, overlay: null, video: null,
+    isActive: false, playing: false, finished: false, handTimer: null,
+  };
   const root = document.createElement("div");
   root.className = "p5-activity";                  // reuse the generic click-through container
 
@@ -363,10 +433,10 @@ function buildRevealActivity(page) {
   spot.type = "button";
   spot.className = "p5-spot active";
   spot.setAttribute("aria-label", "Play the video");
-  const s = rvConfig.spot || {};
+  const s = c.cfg.spot || {};
   ["left", "top", "width", "height"].forEach(function (k) { if (s[k]) spot.style[k] = s[k]; });
   spot.style.pointerEvents = "auto";
-  spot.addEventListener("click", function (e) { e.stopPropagation(); onRevealClick(); });
+  spot.addEventListener("click", function (e) { e.stopPropagation(); ctrlClick(c); });
   spot.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
   root.appendChild(spot);
 
@@ -375,7 +445,7 @@ function buildRevealActivity(page) {
   hand.className = "p5-hand";
   hand.setAttribute("aria-hidden", "true");
   hand.innerHTML = P5_HAND_SVG;
-  const hp = rvConfig.hand || {};
+  const hp = c.cfg.hand || {};
   if (hp.left) hand.style.left = hp.left;
   if (hp.top)  hand.style.top  = hp.top;
   root.appendChild(hand);
@@ -389,73 +459,14 @@ function buildRevealActivity(page) {
   vid.setAttribute("playsinline", "");
   vid.setAttribute("webkit-playsinline", "");
   vid.preload = "auto";
-  vid.addEventListener("ended", onRevealVideoEnded);
+  vid.addEventListener("ended", function () { ctrlEnded(c); });
   overlay.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
   overlay.appendChild(vid);
   root.appendChild(overlay);
 
-  rvHand = hand; rvSpot = spot; rvOverlay = overlay; rvVideo = vid;
+  c.hand = hand; c.spot = spot; c.overlay = overlay; c.video = vid;
+  revealControllers.push(c);
   return root;
-}
-
-function isRevealActive() {
-  return !!(opened && ready && !isGameOverlayOpen &&
-            rvLeafIndex >= 0 && flipped === rvLeafIndex);
-}
-function showRevealHand() { if (rvHand) rvHand.classList.add("show"); }
-function hideRevealHand() {
-  clearTimeout(rvHandTimer); rvHandTimer = null;
-  if (rvHand) rvHand.classList.remove("show");
-}
-function setRevealSpotEnabled(on) {
-  if (!rvSpot) return;
-  rvSpot.style.pointerEvents = on ? "auto" : "none";
-  rvSpot.disabled = !on;
-}
-function stopRevealVideo() {
-  if (rvOverlay) rvOverlay.classList.remove("show");
-  if (rvVideo) { try { rvVideo.pause(); rvVideo.removeAttribute("src"); rvVideo.load(); } catch (_) {} }
-  rvPlaying = false;
-}
-/* Tap → play the clip full-page ON TOP of the static image. */
-function onRevealClick() {
-  if (rvPlaying || !isRevealActive()) return;
-  if (!rvVideo || !rvOverlay || !rvConfig || !rvConfig.video) return;
-  rvPlaying = true;
-  hideRevealHand();
-  setRevealSpotEnabled(false);                     // freeze the hotspot while it plays
-  rvOverlay.classList.add("show");
-  try {
-    rvVideo.src = rvConfig.video;
-    rvVideo.currentTime = 0;
-    rvVideo.muted = false;                         // the tap is a user gesture → sound allowed
-    const p = rvVideo.play();
-    if (p && p.catch) p.catch(function () { rvVideo.muted = true; rvVideo.play().catch(function () {}); });
-  } catch (_) {}
-}
-/* Clip finished → back to the static image; re-arm so it can be replayed. */
-function onRevealVideoEnded() {
-  stopRevealVideo();
-  setRevealSpotEnabled(true);
-  if (isRevealActive()) {
-    clearTimeout(rvHandTimer);
-    rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 500);
-  }
-}
-function initializeReveal() {
-  hideRevealHand(); stopRevealVideo(); setRevealSpotEnabled(true);
-  rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 600);
-}
-function resetReveal() { hideRevealHand(); stopRevealVideo(); setRevealSpotEnabled(true); }
-function revealOnTurnStart() { hideRevealHand(); stopRevealVideo(); }
-function revealSync() {
-  const active = isRevealActive();
-  if (active && !rvIsActive) { rvIsActive = true; initializeReveal(); }
-  else if (!active && rvIsActive) { rvIsActive = false; resetReveal(); }
-  else if (active && rvIsActive && !rvPlaying && rvHand && !rvHand.classList.contains("show")) {
-    clearTimeout(rvHandTimer);
-    rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 350);
-  }
 }
 
 /* ---- Build the pages (one CSS 3D "leaf" per entry) ---------------------- */
@@ -481,8 +492,7 @@ pages.forEach(function (page, i) {
   if (page.bubble) front.appendChild(makeBubble(page.bubble)); // speech bubble (revealed on land)
   if (page.activity === "shapes") front.appendChild(buildPage5Activity()); // Page 5 hand-nudge cue
   if (page.activity === "reveal") {                          // tap-to-reveal-video page (e.g. 7(1).png)
-    front.appendChild(buildRevealActivity(page));
-    rvLeafIndex = i;
+    front.appendChild(buildRevealActivity(page, i));
   }
   const curl = document.createElement("div");               // moving page-curl shading
   curl.className = "curl";
