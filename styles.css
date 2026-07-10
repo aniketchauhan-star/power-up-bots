@@ -602,7 +602,7 @@
      with a deep-blue ▶, echoing the gold-on-blue "Counting Corners" title.
      Sits low-centre; tapping it opens the book. */
   .play-btn {
-    position: absolute; left: 50%; top: 63%; transform: translate(-50%, -50%);
+    position: absolute; left: 50%; top: 80%; transform: translate(-50%, -50%);
     z-index: 2;                                 /* above the full-bleed artwork */
     width: clamp(52px, 6.2vw, 66px); height: clamp(52px, 6.2vw, 66px);  /* small — hugs the icon */
     border: none; padding: 0; cursor: pointer; border-radius: 50%;
