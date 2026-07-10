@@ -562,17 +562,35 @@ function renderLeaves() {
   updateZ();
 }
 
-/* Lazily buffer ONLY the current page's video and the very next one. This keeps
-   the initial load fast (we never download all 10 videos at once) while a
-   forward flip still lands on an already-buffered video. Idempotent. */
+/* Paint a page video's FIRST FRAME while it's paused, so the page shows a real
+   picture the instant it turns into view instead of a blank paper sheet (the
+   video's cream background) until it finally plays after the flip lands.
+   A tiny seek forces the browser to decode + paint frame 0 even while paused. */
+function primeFirstFrame(v) {
+  if (!v || v.dataset.primed) return;
+  v.dataset.primed = "1";
+  const nudge = function () {
+    try { if (v.currentTime < 0.01) v.currentTime = 0.04; } catch (_) {}
+  };
+  if (v.readyState >= 2) nudge();                              // data ready → paint now
+  else v.addEventListener("loadeddata", nudge, { once: true }); // …else the moment it is
+}
+
+/* Lazily buffer the current page's video plus its immediate neighbours (both
+   directions), and paint the NEIGHBOURS' first frame ahead of time so a
+   forward OR backward flip reveals a real picture, not a blank page. This keeps
+   the initial load fast (we never download all videos at once). Idempotent. */
 function prefetchAround(idx) {
-  [idx, idx + 1].forEach(function (i) {
+  [idx - 1, idx, idx + 1].forEach(function (i) {
     const leaf = leaves[i];
     if (!leaf) return;
     const v = leaf.querySelector("video.page-media");
-    if (!v || v.dataset.prefetched) return;
-    v.dataset.prefetched = "1";
-    try { v.preload = "auto"; v.load(); } catch (_) {}
+    if (!v) return;
+    if (!v.dataset.prefetched) {
+      v.dataset.prefetched = "1";
+      try { v.preload = "auto"; v.load(); } catch (_) {}
+    }
+    if (i !== idx) primeFirstFrame(v);   // neighbours: show frame 0 before they turn in
   });
 }
 
