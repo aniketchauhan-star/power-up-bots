@@ -54,10 +54,17 @@ const pages = [
   { type: "image", src: "assets/5.png", activity: "shapes" },   // Page 5 — static shelf + hand nudge
   { type: "video", src: "assets/6.mp4" },   // Page 6
   { type: "video", src: "assets/7.mp4" },   // Page 7
-  { type: "video", src: "assets/8.mp4" },   // Page 8
-  { type: "video", src: "assets/9.mp4" },   // Page 9
-  { type: "video", src: "assets/10.mp4" },  // Page 10
-  { type: "video", src: "assets/11.mp4" },  // Page 11
+  // Page 8 — static scene (7(1).png). A hand nudges the PINK RECTANGLE on the
+  // shelf; tapping it reveals 7(2).mp4 playing full-page ON TOP (its first frame
+  // matches the image, so the picture appears to come alive). Resets on flip.
+  { type: "image", src: "assets/7(1).png", activity: "reveal",
+    reveal: { video: "assets/7(2).mp4",
+              spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
+              hand: { left: "17.6%", top: "19.4%" } } },
+  { type: "video", src: "assets/8.mp4" },   // Page 9
+  { type: "video", src: "assets/9.mp4" },   // Page 10
+  { type: "video", src: "assets/10.mp4" },  // Page 11
+  { type: "video", src: "assets/11.mp4" },  // Page 12
 ];
 
 /* ============================================================================
@@ -328,6 +335,129 @@ function page5Sync() {
   }
 }
 
+/* ==========================================================================
+   VIDEO-REVEAL PAGE  (a static image whose hand-nudged hotspot reveals a video)
+   --------------------------------------------------------------------------
+   Any page entry flagged `activity: "reveal"` shows its static image with ONE
+   hand nudge over a hotspot (`reveal.spot`); tapping it plays `reveal.video`
+   full-page ON TOP of the image, then returns to the image (replayable). The
+   whole thing resets whenever the reader flips away and back — same behaviour as
+   page 5, but a single tap/video instead of a three-step sequence.
+
+   Reuses page 5's generic CSS (.p5-activity / .p5-spot / .p5-hand /
+   .p5-video-overlay / .p5-video). Engine hooks: revealSync() (on settle) and
+   revealOnTurnStart() (on flip start).
+   ========================================================================== */
+let rvLeafIndex = -1;                              // 0-based index of the reveal leaf
+let rvHand = null, rvSpot = null, rvOverlay = null, rvVideo = null, rvConfig = null;
+let rvIsActive = false, rvPlaying = false, rvHandTimer = null;
+
+/* Build the reveal activity DOM. Called ONCE while the reveal leaf is built. */
+function buildRevealActivity(page) {
+  rvConfig = page.reveal || {};
+  const root = document.createElement("div");
+  root.className = "p5-activity";                  // reuse the generic click-through container
+
+  // Single clickable hotspot over the target shape (starts tappable).
+  const spot = document.createElement("button");
+  spot.type = "button";
+  spot.className = "p5-spot active";
+  spot.setAttribute("aria-label", "Play the video");
+  const s = rvConfig.spot || {};
+  ["left", "top", "width", "height"].forEach(function (k) { if (s[k]) spot.style[k] = s[k]; });
+  spot.style.pointerEvents = "auto";
+  spot.addEventListener("click", function (e) { e.stopPropagation(); onRevealClick(); });
+  spot.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+  root.appendChild(spot);
+
+  // The nudging hand, parked over the hotspot (fixed position for this page).
+  const hand = document.createElement("div");
+  hand.className = "p5-hand";
+  hand.setAttribute("aria-hidden", "true");
+  hand.innerHTML = P5_HAND_SVG;
+  const hp = rvConfig.hand || {};
+  if (hp.left) hand.style.left = hp.left;
+  if (hp.top)  hand.style.top  = hp.top;
+  root.appendChild(hand);
+
+  // Full-page video overlay revealed on tap.
+  const overlay = document.createElement("div");
+  overlay.className = "p5-video-overlay";
+  const vid = document.createElement("video");
+  vid.className = "p5-video";
+  vid.playsInline = true;
+  vid.setAttribute("playsinline", "");
+  vid.setAttribute("webkit-playsinline", "");
+  vid.preload = "auto";
+  vid.addEventListener("ended", onRevealVideoEnded);
+  overlay.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+  overlay.appendChild(vid);
+  root.appendChild(overlay);
+
+  rvHand = hand; rvSpot = spot; rvOverlay = overlay; rvVideo = vid;
+  return root;
+}
+
+function isRevealActive() {
+  return !!(opened && ready && !isGameOverlayOpen &&
+            rvLeafIndex >= 0 && flipped === rvLeafIndex);
+}
+function showRevealHand() { if (rvHand) rvHand.classList.add("show"); }
+function hideRevealHand() {
+  clearTimeout(rvHandTimer); rvHandTimer = null;
+  if (rvHand) rvHand.classList.remove("show");
+}
+function setRevealSpotEnabled(on) {
+  if (!rvSpot) return;
+  rvSpot.style.pointerEvents = on ? "auto" : "none";
+  rvSpot.disabled = !on;
+}
+function stopRevealVideo() {
+  if (rvOverlay) rvOverlay.classList.remove("show");
+  if (rvVideo) { try { rvVideo.pause(); rvVideo.removeAttribute("src"); rvVideo.load(); } catch (_) {} }
+  rvPlaying = false;
+}
+/* Tap → play the clip full-page ON TOP of the static image. */
+function onRevealClick() {
+  if (rvPlaying || !isRevealActive()) return;
+  if (!rvVideo || !rvOverlay || !rvConfig || !rvConfig.video) return;
+  rvPlaying = true;
+  hideRevealHand();
+  setRevealSpotEnabled(false);                     // freeze the hotspot while it plays
+  rvOverlay.classList.add("show");
+  try {
+    rvVideo.src = rvConfig.video;
+    rvVideo.currentTime = 0;
+    rvVideo.muted = false;                         // the tap is a user gesture → sound allowed
+    const p = rvVideo.play();
+    if (p && p.catch) p.catch(function () { rvVideo.muted = true; rvVideo.play().catch(function () {}); });
+  } catch (_) {}
+}
+/* Clip finished → back to the static image; re-arm so it can be replayed. */
+function onRevealVideoEnded() {
+  stopRevealVideo();
+  setRevealSpotEnabled(true);
+  if (isRevealActive()) {
+    clearTimeout(rvHandTimer);
+    rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 500);
+  }
+}
+function initializeReveal() {
+  hideRevealHand(); stopRevealVideo(); setRevealSpotEnabled(true);
+  rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 600);
+}
+function resetReveal() { hideRevealHand(); stopRevealVideo(); setRevealSpotEnabled(true); }
+function revealOnTurnStart() { hideRevealHand(); stopRevealVideo(); }
+function revealSync() {
+  const active = isRevealActive();
+  if (active && !rvIsActive) { rvIsActive = true; initializeReveal(); }
+  else if (!active && rvIsActive) { rvIsActive = false; resetReveal(); }
+  else if (active && rvIsActive && !rvPlaying && rvHand && !rvHand.classList.contains("show")) {
+    clearTimeout(rvHandTimer);
+    rvHandTimer = setTimeout(function () { if (isRevealActive() && !rvPlaying) showRevealHand(); }, 350);
+  }
+}
+
 /* ---- Build the pages (one CSS 3D "leaf" per entry) ---------------------- */
 const flipbookEl  = document.getElementById("flipbook");
 const flipScaleEl = document.getElementById("flipScale");
@@ -350,6 +480,10 @@ pages.forEach(function (page, i) {
   front.appendChild(makeMedia(page));                       // full-bleed image / video
   if (page.bubble) front.appendChild(makeBubble(page.bubble)); // speech bubble (revealed on land)
   if (page.activity === "shapes") front.appendChild(buildPage5Activity()); // Page 5 hand-nudge cue
+  if (page.activity === "reveal") {                          // tap-to-reveal-video page (e.g. 7(1).png)
+    front.appendChild(buildRevealActivity(page));
+    rvLeafIndex = i;
+  }
   const curl = document.createElement("div");               // moving page-curl shading
   curl.className = "curl";
   front.appendChild(curl);
@@ -472,6 +606,7 @@ function refreshMedia(delayMs) {
     bub.classList.add("revealed");
   }
   page5Sync();     // show/hide the Page-5 hand nudge as the front page settles
+  revealSync();    // show/hide the reveal-page (7(1).png) hand nudge as it settles
 }
 
 /* ---- Navigation (drives the CSS leaf flip) ------------------------------ */
@@ -946,6 +1081,7 @@ function advanceToVisiblePage(destPage) {
 /* Pause any page video/audio so nothing plays behind an open game. */
 function pauseAllPageMedia() {
   page5OnTurnStart();                     // a page is turning → hide the Page-5 hand nudge
+  revealOnTurnStart();                    // …and the reveal-page nudge / stop its video
   clearTimeout(videoStartTimer);          // drop any pending "start the landed video" timer
   leaves.forEach(function (leaf) {
     const v = leaf.querySelector("video.page-media");
