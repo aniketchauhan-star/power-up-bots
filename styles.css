@@ -17,13 +17,25 @@
     --tape:       rgba(255, 210, 90, 0.60);   /* warm gold washi-tape */
     --page-edge:  #d9c8a2;   /* page-stack edge colour (parchment) */
 
-    /* -- OUTER desert scene palette (background only — NEVER used inside the book) */
-    --sand-light:    #FFD77A;   /* light sand      */
-    --sand-gold:     #F4B84A;   /* golden sand     */
-    --sand-peach:    #F59A62;   /* soft peach      */
-    --sky-blue:      #BFEFFF;   /* light sky blue  */
-    --turquoise:     #38C9CC;   /* turquoise accent*/
-    --desert-purple: #4A3477;   /* soft desert purple (palm silhouettes) */
+    /* -- OUTER futuristic-lab scene palette (background only — NEVER used inside
+       the book). A bright, clean, child-friendly sci-fi lab: light cyan → sky →
+       periwinkle → lavender, with blue + purple accents and a soft white glow. */
+    --lab-cyan:   #DDF7FF;   /* very light cyan     */
+    --lab-sky:    #B8E8FF;   /* soft sky blue       */
+    --lab-peri:   #AFC4FF;   /* light periwinkle    */
+    --lab-lav:    #D8CCFF;   /* soft lavender       */
+    --lab-blue:   #7196F6;   /* medium blue accent  */
+    --lab-purple: #7751C9;   /* purple accent       */
+    --lab-glow:   rgba(255, 255, 255, 0.65);   /* soft white glow */
+
+    /* Legacy desert tokens kept ONLY so the LBD game-loading screen still resolves
+       its colours; the outer desert scene itself has been removed. */
+    --sand-light:    #DDF7FF;
+    --sand-gold:     #B8E8FF;
+    --sand-peach:    #AFC4FF;
+    --sky-blue:      #DDF7FF;
+    --turquoise:     #7196F6;
+    --desert-purple: #7751C9;
 
     /* Fonts */
     --font-head: "Fredoka", system-ui, sans-serif;
@@ -57,78 +69,108 @@
     min-height: 100svh;
     display: flex; align-items: center; justify-content: center;
     font-family: var(--font-hand); color: var(--ink);
-    /* Background: a bright, kid-friendly desert — a light sky-blue top easing down
-       through warm golden sand. Dunes / palms / wave / sparkles are separate
-       decorative layers (see .desert-bg) so this stays a clean base wash. */
+    /* Background: a bright, clean futuristic kids' lab — a smooth light-cyan top
+       easing down through sky-blue + periwinkle into soft lavender. Wall panels,
+       circuit lines, sparkles and a floor glow are separate decorative layers
+       (see .lab-bg) so this stays a clean base wash. */
     background:
-      linear-gradient(180deg,
-        var(--sky-blue) 0%,
-        #DBF3F2 26%,      /* sky → faint turquoise haze */
-        var(--sand-light) 52%,
-        var(--sand-gold) 82%,
-        var(--sand-peach) 100%);
+      linear-gradient(165deg,
+        var(--lab-cyan) 0%,
+        var(--lab-sky)  34%,
+        var(--lab-peri) 66%,
+        var(--lab-lav)  100%);
     background-attachment: fixed;
     overflow: hidden;                 /* decorations must never cause page scroll */
   }
 
   /* ==========================================================================
-     OUTER DESERT DECORATIONS  —  behind the book, never interactive.
+     OUTER FUTURISTIC-LAB DECORATIONS  —  behind the book, never interactive.
      A single fixed, clipped layer so nothing can ever cause page overflow.
+     Everything here is purely decorative: pointer-events:none + user-select:none,
+     and it sits at z-index 0, beneath .scene (z-index 1) so the book stays the
+     focus and no decoration ever overlaps or blocks the pages.
      ========================================================================== */
-  .desert-bg {
+  .lab-bg {
     position: fixed; inset: 0; z-index: 0;
     overflow: hidden; pointer-events: none;   /* decorative only */
+    -webkit-user-select: none; user-select: none;
   }
-  .desert-bg * { pointer-events: none; }
+  .lab-bg * { pointer-events: none; -webkit-user-select: none; user-select: none; }
 
-  /* 2–3 large, soft rounded dunes hugging the bottom. Oversized + off-screen
-     sides so their curves read as gentle hills, never hard edges. */
-  .dune {
-    position: absolute; left: 50%; transform: translateX(-50%);
-    border-radius: 50% 50% 0 0 / 100% 100% 0 0;   /* rounded dome top */
+  /* Large, soft rounded "wall panels" hugging the OUTER left/right edges. Very
+     light translucent fills with a soft highlight edge — toy-like, not realistic.
+     The centre stays clean so the book reads clearly. */
+  .lab-panel {
+    position: absolute; border-radius: 34px;
+    background: linear-gradient(150deg, rgba(255,255,255,0.55), rgba(184,232,255,0.20));
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.45),
+                inset 0 18px 40px -24px rgba(255,255,255,0.9),
+                0 20px 60px -30px rgba(119,81,201,0.30);
+    opacity: .8;
   }
-  .dune-back  { bottom: 8%;  width: 150%; height: 42%;
-    background: var(--sand-gold);  opacity: .55; }
-  .dune-mid   { bottom: 2%;  width: 130%; height: 34%; left: 28%;
-    background: var(--sand-peach); opacity: .6; }
-  .dune-front { bottom: -4%; width: 140%; height: 30%; left: 72%;
-    background: var(--sand-light); opacity: .85; }
+  .lab-panel.panel-left  { top: 12%; left: -6%;  width: 20vw; max-width: 320px; height: 62%; }
+  .lab-panel.panel-right { top: 16%; right: -6%; width: 20vw; max-width: 320px; height: 58%; }
+  .lab-panel.panel-tl    { top: -8%; left: 14%;  width: 22vw; max-width: 340px; height: 26%; opacity: .55; }
+  .lab-panel.panel-br    { bottom: -10%; right: 12%; width: 24vw; max-width: 360px; height: 28%; opacity: .5; }
 
-  /* Turquoise wave-inspired accent skimming the very bottom. */
-  .desert-wave {
-    position: absolute; left: -5%; right: -5%; bottom: 0; height: 6%;
-    background:
-      radial-gradient(60% 120% at 12% 0, transparent 60%, var(--turquoise) 61%) 0 0 / 90px 100% repeat-x,
-      linear-gradient(var(--turquoise), var(--turquoise));
-    -webkit-mask-image: linear-gradient(180deg, transparent, #000 55%);
-            mask-image: linear-gradient(180deg, transparent, #000 55%);
-    opacity: .45;
+  /* Soft curved circuit lines + connector dots. Inline SVG strokes, low opacity. */
+  .lab-circuit {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    opacity: .5;
   }
 
-  /* Small palm-tree silhouettes near each lower corner. */
-  .palm { position: absolute; bottom: 3%; width: clamp(64px, 8vw, 120px); height: auto;
-    opacity: .32; }
-  .palm-left  { left: clamp(6px, 2.5vw, 40px);  transform: scaleX(-1) rotate(-4deg); }
-  .palm-right { right: clamp(6px, 2.5vw, 40px); transform: rotate(-4deg); }
+  /* Rounded blue light strips near the TOP corners. */
+  .lab-strip {
+    position: absolute; top: clamp(10px, 3vh, 34px); height: 10px; width: 15vw; max-width: 220px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(113,150,246,0), var(--lab-blue), rgba(113,150,246,0));
+    filter: blur(0.5px); opacity: .55;
+    box-shadow: 0 0 16px 3px rgba(113,150,246,0.45);
+  }
+  .lab-strip.strip-left  { left: clamp(10px, 4vw, 60px); }
+  .lab-strip.strip-right { right: clamp(10px, 4vw, 60px); }
 
-  /* A few subtle twinkling sparkles up in the sky. */
-  .sparkle {
+  /* A few tiny glowing dots / sparkles scattered in the upper area. */
+  .lab-spark {
     position: absolute; width: 8px; height: 8px; border-radius: 50%;
-    background: radial-gradient(circle, #fff 0 40%, rgba(255,255,255,0) 70%);
-    box-shadow: 0 0 6px 2px rgba(255,255,255,0.55);
-    opacity: .0; animation: sparkleTwinkle 3.4s ease-in-out infinite;
+    background: radial-gradient(circle, #fff 0 38%, rgba(255,255,255,0) 72%);
+    box-shadow: 0 0 8px 2px var(--lab-glow);
+    opacity: 0; animation: labTwinkle 3.4s ease-in-out infinite;
   }
-  @keyframes sparkleTwinkle {
+  @keyframes labTwinkle {
     0%, 100% { opacity: 0; transform: scale(.6); }
     50%      { opacity: .9; transform: scale(1); }
   }
+
+  /* Soft futuristic FLOOR glow near the bottom — a wide, low, blurred light wash. */
+  .lab-floor {
+    position: absolute; left: 50%; bottom: -6%; transform: translateX(-50%);
+    width: 120%; height: 34%;
+    background:
+      radial-gradient(60% 100% at 50% 100%,
+        var(--lab-glow) 0%, rgba(175,196,255,0.35) 40%, rgba(175,196,255,0) 75%);
+    filter: blur(6px);
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .sparkle { animation: none; opacity: .5; }
+    .lab-spark { animation: none; opacity: .5; }
+  }
+
+  /* Tablet: slightly smaller side panels + strips. */
+  @media (max-width: 1024px) {
+    .lab-panel.panel-left, .lab-panel.panel-right { width: 16vw; }
+    .lab-panel.panel-tl, .lab-panel.panel-br { opacity: .4; }
+    .lab-strip { width: 12vw; }
+  }
+  /* Mobile: simplify — hide side/corner panels, circuit lines + sparkles; keep the
+     clean gradient + a soft floor glow only. Never causes horizontal scroll. */
+  @media (max-width: 640px) {
+    .lab-panel, .lab-circuit, .lab-strip, .lab-spark { display: none; }
   }
 
   /* Whole scene fades + scales in on load (entrance animation) */
   .scene {
-    position: relative; z-index: 1;          /* above the desert decorations */
+    position: relative; z-index: 1;          /* above the lab decorations */
     width: 100%; min-height: 100svh;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -137,15 +179,16 @@
     animation: sceneIn 900ms ease both;
   }
 
-  /* Soft warm shadow + subtle golden glow behind the centred book. */
+  /* Soft blue-purple AMBIENT GLOW behind the centred book (replaces the warm
+     golden glow) — keeps the book the focus against the futuristic lab. */
   .book-glow {
     position: absolute; top: 50%; left: 50%;
     width: min(92vw, 1180px); height: min(78vh, 740px);
     transform: translate(-50%, -50%);
     z-index: 0; pointer-events: none;
     background:
-      radial-gradient(closest-side, rgba(255,196,92,0.45) 0%, rgba(255,178,74,0.22) 45%, transparent 72%);
-    filter: blur(18px);
+      radial-gradient(closest-side, rgba(113,150,246,0.40) 0%, rgba(119,81,201,0.22) 46%, transparent 72%);
+    filter: blur(22px);
   }
   @keyframes sceneIn {
     from { opacity: 0; transform: translateY(18px) scale(0.96); }
@@ -245,9 +288,9 @@
     position: absolute; left: 50%; bottom: 3%;
     width: 44%; height: 9%;
     transform: translateX(-50%);
-    background: radial-gradient(ellipse at center, rgba(70,30,45,0.5), rgba(70,30,45,0) 70%);
-    filter: blur(12px);
-    z-index: 0; opacity: 0.75; pointer-events: none;   /* never swallow a tap */
+    background: radial-gradient(ellipse at center, rgba(58,50,110,0.42), rgba(58,50,110,0) 70%);
+    filter: blur(16px);
+    z-index: 0; opacity: 0.7; pointer-events: none;   /* never swallow a tap */
     transition: width var(--cover-ms) var(--cover-ease),
                 opacity var(--cover-ms) ease, bottom var(--cover-ms) ease;
   }
@@ -515,7 +558,12 @@
      the image reads as covering everything — like a printed picture-book cover. */
   .cover .front .cover-img {
     position: absolute; inset: 0; z-index: 0; border-radius: inherit;
-    background: url("assets/thumbnail.webp") center / cover no-repeat;
+    overflow: hidden;
+  }
+  /* Static cover poster = the FIRST FRAME of coverpage.mp4 (never played). */
+  .cover .front .cover-img .cover-poster {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; pointer-events: none;
   }
   /* The custom artwork already has its own title + characters, so hide the
      placeholder title / subtitle / taped photo — keep only the "tap to open" hint. */
@@ -725,6 +773,66 @@
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block; background: var(--paper);
     border-radius: inherit;
+  }
+
+  /* ==========================================================================
+     PAGE 5 — GUIDED SHELF SEQUENCE  (hand nudge → tap a shape → its video plays)
+     A click-through container holding three invisible shape hotspots, the
+     nudging hand, and a full-page video overlay — all over the static 5.png.
+     ========================================================================== */
+  .p5-activity {
+    position: absolute; inset: 0; z-index: 6;          /* above the page-curl (z5) */
+    pointer-events: none;                              /* container itself never blocks drags */
+    -webkit-user-select: none; user-select: none;
+  }
+  /* Invisible clickable zone over each shelf row of shapes. Only the ACTIVE one
+     receives taps (pointer-events toggled from JS); the rest stay pass-through. */
+  .p5-spot {
+    position: absolute; z-index: 2;
+    margin: 0; padding: 0; border: 0; background: transparent;
+    border-radius: 16px; -webkit-appearance: none; appearance: none;
+    pointer-events: none;                              /* JS turns this on for the active shape */
+    outline: none;
+  }
+  .p5-spot.active { cursor: pointer; }
+  /* Friendly pointing hand; JS positions it (left/top) at the current shape and
+     the finger points UP into it. */
+  .p5-hand {
+    position: absolute; left: 50%; top: 50%;
+    margin-left: -32px; margin-top: -41px;             /* anchored by its CENTRE on the point set in JS */
+    width: 64px; height: 82px; z-index: 3;
+    pointer-events: none; -webkit-user-select: none; user-select: none;
+    opacity: 0; visibility: hidden;
+    transform-origin: 50% 12%;                         /* scale pivot near the fingertip */
+    filter: drop-shadow(0 6px 8px rgba(58,50,110,0.45));
+  }
+  .p5-hand.show { opacity: 1; visibility: visible; animation: p5HandNudge 3.2s ease-in-out infinite; }
+
+  /* Full-page overlay that plays the tapped shape's clip, then auto-advances. */
+  .p5-video-overlay {
+    position: absolute; inset: 0; z-index: 10;
+    background: #000; border-radius: inherit; overflow: hidden;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .2s ease;
+  }
+  .p5-video-overlay.show { opacity: 1; visibility: visible; pointer-events: auto; }
+  .p5-video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block; border-radius: inherit;
+  }
+  /* gentle upward nudge-and-tap ×3, then a pause, then repeat — never a fast shake. */
+  @keyframes p5HandNudge {
+    0%   { transform: translateY(0) scale(1); }
+    9%   { transform: translateY(-12px) scale(0.9); }
+    18%  { transform: translateY(0) scale(1); }
+    27%  { transform: translateY(-12px) scale(0.9); }
+    36%  { transform: translateY(0) scale(1); }
+    45%  { transform: translateY(-12px) scale(0.9); }
+    54%  { transform: translateY(0) scale(1); }
+    100% { transform: translateY(0) scale(1); }        /* brief pause, then loop */
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .p5-hand.show { animation: none; }
   }
 
   /* ---- Speech bubble --------------------------------------------------------

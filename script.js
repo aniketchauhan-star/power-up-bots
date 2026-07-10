@@ -47,17 +47,17 @@ console.log("%c✅ [The Story Night] loaded — 3D flipbook · full-bleed pages 
    counter update automatically.
    ============================================================================ */
 const pages = [
-  { type: "video", src: "assets/page-01.mp4" },   // Page 1
-  { type: "video", src: "assets/page-02.mp4" },   // Page 2
-  { type: "video", src: "assets/page-03.mp4" },   // Page 3
-  { type: "video", src: "assets/page-04.mp4" },   // Page 4
-  { type: "video", src: "assets/page-05.mp4" },   // Page 5
-  { type: "video", src: "assets/page-06.mp4" },   // Page 6
-  { type: "video", src: "assets/page-07.mp4" },   // Page 7
-  { type: "video", src: "assets/page-08.mp4" },   // Page 8
-  { type: "video", src: "assets/page-09.mp4" },   // Page 9
-  { type: "video", src: "assets/page-10.mp4" },   // Page 10
-  { type: "image", src: "assets/the-end.webp" },  // Page 11 — the end
+  { type: "video", src: "assets/1.mp4" },   // Page 1
+  { type: "video", src: "assets/2.mp4" },   // Page 2
+  { type: "video", src: "assets/3.mp4" },   // Page 3
+  { type: "video", src: "assets/4.mp4" },   // Page 4
+  { type: "image", src: "assets/5.png", activity: "shapes" },   // Page 5 — static shelf + hand nudge
+  { type: "video", src: "assets/6.mp4" },   // Page 6
+  { type: "video", src: "assets/7.mp4" },   // Page 7
+  { type: "video", src: "assets/8.mp4" },   // Page 8
+  { type: "video", src: "assets/9.mp4" },   // Page 9
+  { type: "video", src: "assets/10.mp4" },  // Page 10
+  { type: "video", src: "assets/11.mp4" },  // Page 11
 ];
 
 /* ============================================================================
@@ -123,6 +123,211 @@ function makeBubble(bubble) {
   return wrap;
 }
 
+/* ==========================================================================
+   PAGE 5 — GUIDED SHELF SEQUENCE (hand nudge → tap → video → next shape)
+   --------------------------------------------------------------------------
+   Visible page 5 (internal leaf index 4) is the static shelf image (assets/5.png).
+   On top of it we lay THREE invisible clickable hotspots — one per shelf row of
+   shapes — plus a tutorial HAND that nudges the shape you should tap next, and a
+   full-page video overlay that plays that shape's clip.
+
+   The guided flow (one shape at a time):
+     step 0 → hand nudges the PINK RECTANGLES (top shelf); tap → assets/5(rectangle).mp4
+     step 1 → hand nudges the GREEN BLOCKS  (middle shelf); tap → assets/5(green).mp4
+     step 2 → hand nudges the YELLOW CIRCLES (bottom shelf); tap → assets/5(circle).mp4
+     step 3 → all done: no more hand, nothing left to tap.
+   Each clip plays as a full-page overlay; when it ENDS we return to the static
+   page and nudge the next shape. Only the current step's hotspot is tappable.
+
+   Flipping the page (left OR right) RESETS the whole sequence back to step 0, so
+   returning to page 5 always starts fresh at the rectangles.
+
+   The engine calls two hooks:
+     • page5Sync()        — from refreshMedia() when a page settles (enter/leave)
+     • page5OnTurnStart() — from pauseAllPageMedia() when a flip begins
+   ========================================================================== */
+const P5_VISIBLE_PAGE = 5;                       // the visible page the sequence lives on
+let p5Root = null, p5Hand = null, p5Overlay = null, p5Video = null;
+let p5Hotspots = [];                              // the three clickable shape zones
+let p5HandTimer = null;                           // delayed "show the hand" timer
+let p5IsActive = false;                           // is page 5 the settled, active front page?
+let p5Step = 0;                                   // 0=rectangle, 1=green, 2=circle, 3=done
+let p5Playing = false;                            // is a shape's clip currently on screen?
+
+// Friendly pointing HAND (NOT an emoji), finger up — points UP at the shape above it.
+const P5_HAND_SVG =
+  '<svg viewBox="0 0 84 104" width="100%" height="100%" aria-hidden="true" focusable="false">' +
+  '<path fill="#ffffff" stroke="#6E4FB8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" d="' +
+  'M40 8 c-6 0 -10 4 -10 10 v34 c-2 -3 -6 -6 -11 -4 c-5 2 -6 8 -3 13 l10 20 ' +
+  'c4 8 12 13 21 13 h6 c13 0 23 -10 23 -23 V52 c0 -5 -4 -8 -8 -8 c-1 0 -3 0 -4 1 ' +
+  'c0 -4 -3 -7 -8 -7 c-1 0 -3 0 -4 1 V18 c0 -6 -4 -10 -9 -10 z"/></svg>';
+
+/* The sequence, in order. Positions are % of the 1280×720 page:
+   • spot — the invisible clickable rectangle over that shelf's shapes.
+   • hand — where the pointing hand sits (fingertip points UP into the shapes). */
+const P5_STEPS = [
+  { key: "rectangle", video: "assets/5(rectangle).mp4",
+    spot: { left: "33%", top: "21%", width: "36%", height: "20%" },
+    hand: { left: "50%", top: "29%" } },   // centred on the pink rectangles
+  { key: "green",     video: "assets/5(green).mp4",
+    spot: { left: "35%", top: "45%", width: "30%", height: "21%" },
+    hand: { left: "48%", top: "53%" } },   // centred on the green blocks
+  { key: "circle",    video: "assets/5(circle).mp4",
+    spot: { left: "34%", top: "69%", width: "32%", height: "20%" },
+    hand: { left: "49%", top: "77%" } },   // centred on the yellow circles
+];
+
+/* Build the page-5 activity DOM. Called ONCE while the page-5 leaf is built. */
+function buildPage5Activity() {
+  const root = document.createElement("div");
+  root.className = "p5-activity";
+  root.setAttribute("data-page5", "");
+
+  // One invisible clickable hotspot per shelf row of shapes.
+  p5Hotspots = P5_STEPS.map(function (step, i) {
+    const spot = document.createElement("button");
+    spot.type = "button";
+    spot.className = "p5-spot";
+    spot.setAttribute("aria-label", "Play the " + step.key + " shapes video");
+    ["left", "top", "width", "height"].forEach(function (k) { spot.style[k] = step.spot[k]; });
+    spot.addEventListener("click", function (e) { e.stopPropagation(); onPage5SpotClick(i); });
+    // A tap on the hotspot must never start a page-flip drag.
+    spot.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+    root.appendChild(spot);
+    return spot;
+  });
+
+  // The nudging hand (repositioned per step in showPage5Hand()).
+  const hand = document.createElement("div");
+  hand.className = "p5-hand";
+  hand.setAttribute("data-page5-hand", "");
+  hand.setAttribute("aria-hidden", "true");
+  hand.innerHTML = P5_HAND_SVG;
+  root.appendChild(hand);
+
+  // Full-page video overlay that plays the tapped shape's clip, then auto-advances.
+  const overlay = document.createElement("div");
+  overlay.className = "p5-video-overlay";
+  const vid = document.createElement("video");
+  vid.className = "p5-video";
+  vid.playsInline = true;
+  vid.setAttribute("playsinline", "");
+  vid.setAttribute("webkit-playsinline", "");
+  vid.preload = "auto";
+  vid.addEventListener("ended", onPage5VideoEnded);
+  // Block page-flip drags while the clip is on screen.
+  overlay.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
+  overlay.appendChild(vid);
+  root.appendChild(overlay);
+
+  p5Root = root; p5Hand = hand; p5Overlay = overlay; p5Video = vid;
+  return root;
+}
+
+/* Is visible page 5 the current, settled front page? */
+function isVisiblePage5Active() {
+  return !!(opened && ready && !isGameOverlayOpen &&
+            flipped === flippedFromVisiblePage(P5_VISIBLE_PAGE));
+}
+
+/* Only the CURRENT step's hotspot is tappable (and never while a clip plays). */
+function updatePage5Spots() {
+  p5Hotspots.forEach(function (spot, i) {
+    const active = !p5Playing && p5Step < P5_STEPS.length && i === p5Step;
+    spot.classList.toggle("active", active);
+    spot.style.pointerEvents = active ? "auto" : "none";
+    spot.disabled = !active;
+  });
+}
+
+/* Move the hand onto the current step's shape and reveal it. */
+function showPage5Hand() {
+  if (!p5Hand || p5Step >= P5_STEPS.length) return;   // nothing left to nudge
+  const h = P5_STEPS[p5Step].hand;
+  p5Hand.style.left = h.left;
+  p5Hand.style.top  = h.top;
+  p5Hand.classList.add("show");
+}
+function hidePage5Hand() {
+  clearTimeout(p5HandTimer); p5HandTimer = null;
+  if (p5Hand) p5Hand.classList.remove("show");
+}
+
+/* Stop + tear down the video overlay (used on flip / leave / after it ends). */
+function stopPage5Video() {
+  if (p5Overlay) p5Overlay.classList.remove("show");
+  if (p5Video) {
+    try { p5Video.pause(); p5Video.removeAttribute("src"); p5Video.load(); } catch (_) {}
+  }
+  p5Playing = false;
+}
+
+/* Reader tapped a shape's hotspot → play that shape's clip full-page. */
+function onPage5SpotClick(i) {
+  if (p5Playing || i !== p5Step || p5Step >= P5_STEPS.length) return;
+  if (!isVisiblePage5Active()) return;
+  const step = P5_STEPS[i];
+  if (!step || !p5Video || !p5Overlay) return;
+
+  p5Playing = true;
+  hidePage5Hand();
+  updatePage5Spots();                         // freeze hotspots while it plays
+  p5Overlay.classList.add("show");
+  try {
+    p5Video.src = step.video;
+    p5Video.currentTime = 0;
+    p5Video.muted = false;                    // the tap is a user gesture → sound allowed
+    const p = p5Video.play();
+    if (p && p.catch) p.catch(function () { p5Video.muted = true; p5Video.play().catch(function () {}); });
+  } catch (_) {}
+}
+
+/* A shape's clip finished → hide the overlay, advance, nudge the next shape. */
+function onPage5VideoEnded() {
+  stopPage5Video();
+  p5Step++;                                   // move to the next shape (or "done")
+  updatePage5Spots();
+  if (isVisiblePage5Active() && p5Step < P5_STEPS.length) {
+    clearTimeout(p5HandTimer);
+    p5HandTimer = setTimeout(function () {
+      if (isVisiblePage5Active() && !p5Playing) showPage5Hand();
+    }, 500);
+  }
+}
+
+/* Lifecycle -----------------------------------------------------------------
+   • initialize — page 5 just settled: start FRESH at step 0, nudge the rectangles.
+   • reset      — page 5 left: tear everything down and rewind to step 0.
+   • turnStart  — a flip began: hide the hand + kill any playing clip. */
+function initializePage5Activity() {
+  hidePage5Hand();
+  stopPage5Video();
+  p5Step = 0;                                 // flipping in always restarts the sequence
+  updatePage5Spots();
+  p5HandTimer = setTimeout(function () {
+    if (isVisiblePage5Active() && !p5Playing) showPage5Hand();
+  }, 600);
+}
+function resetPage5Activity() {
+  hidePage5Hand();
+  stopPage5Video();
+  p5Step = 0;
+  updatePage5Spots();
+}
+function page5OnTurnStart() { hidePage5Hand(); stopPage5Video(); }
+function page5Sync() {
+  const active = isVisiblePage5Active();
+  if (active && !p5IsActive) { p5IsActive = true; initializePage5Activity(); }
+  else if (!active && p5IsActive) { p5IsActive = false; resetPage5Activity(); }
+  else if (active && p5IsActive && !p5Playing && p5Step < P5_STEPS.length &&
+           p5Hand && !p5Hand.classList.contains("show")) {
+    clearTimeout(p5HandTimer);
+    p5HandTimer = setTimeout(function () {
+      if (isVisiblePage5Active() && !p5Playing) showPage5Hand();
+    }, 350);
+  }
+}
+
 /* ---- Build the pages (one CSS 3D "leaf" per entry) ---------------------- */
 const flipbookEl  = document.getElementById("flipbook");
 const flipScaleEl = document.getElementById("flipScale");
@@ -144,6 +349,7 @@ pages.forEach(function (page, i) {
   front.className = "face front";
   front.appendChild(makeMedia(page));                       // full-bleed image / video
   if (page.bubble) front.appendChild(makeBubble(page.bubble)); // speech bubble (revealed on land)
+  if (page.activity === "shapes") front.appendChild(buildPage5Activity()); // Page 5 hand-nudge cue
   const curl = document.createElement("div");               // moving page-curl shading
   curl.className = "curl";
   front.appendChild(curl);
@@ -195,6 +401,13 @@ function fitScale() {
 function updateZ() {
   leaves.forEach(function (leaf, i) {
     leaf.style.zIndex = (i < flipped) ? (200 + i) : (100 - i);
+    // Only the CURRENT front page should catch taps. The book's 3D context is
+    // flattened (the preserve-3d rule targets #leaves, but the container is
+    // #flipbook), so a "flipped" leaf still overlaps the page and would steal
+    // clicks meant for page-5's shape hotspots / a video. Make every non-current
+    // leaf click-through: page-flip DRAGS still work (they bubble to #flipbook),
+    // but taps now land on the current page's own content.
+    leaf.style.pointerEvents = (i === flipped) ? "auto" : "none";
   });
 }
 function renderLeaves() {
@@ -258,6 +471,7 @@ function refreshMedia(delayMs) {
     bub.dataset.revealed = "1";
     bub.classList.add("revealed");
   }
+  page5Sync();     // show/hide the Page-5 hand nudge as the front page settles
 }
 
 /* ---- Navigation (drives the CSS leaf flip) ------------------------------ */
@@ -574,8 +788,11 @@ function soundOn() {
    ========================================================================== */
 
 // Which VISIBLE (1-based) page each game gates — configurable, not a raw index.
-const LBD_1_AFTER_VISIBLE_PAGE = 6;
-const LBD_2_AFTER_VISIBLE_PAGE = 8;
+// DISABLED: the LBD game folders were removed and this is now a pure video
+// flipbook. Pages are 1-based, so 0 never matches → no game ever launches and
+// the book flips straight through. Set these back to 6 / 8 to re-enable.
+const LBD_1_AFTER_VISIBLE_PAGE = 0;
+const LBD_2_AFTER_VISIBLE_PAGE = 0;
 
 // Game entry files. Folder names contain SPACES → encodeURI() keeps the URL
 // valid without renaming anything. (Verified entry points on disk.)
@@ -728,6 +945,7 @@ function advanceToVisiblePage(destPage) {
 
 /* Pause any page video/audio so nothing plays behind an open game. */
 function pauseAllPageMedia() {
+  page5OnTurnStart();                     // a page is turning → hide the Page-5 hand nudge
   clearTimeout(videoStartTimer);          // drop any pending "start the landed video" timer
   leaves.forEach(function (leaf) {
     const v = leaf.querySelector("video.page-media");

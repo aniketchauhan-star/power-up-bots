@@ -42,31 +42,48 @@
   </div>
 </div>
 <!-- ===================================================================
-     OUTER DESERT BACKGROUND — purely decorative, sits BEHIND the book.
-     Every element here is pointer-events:none and never overlaps book logic.
+     OUTER FUTURISTIC-LAB BACKGROUND — purely decorative, sits BEHIND the book.
+     Every element here is pointer-events:none / user-select:none and never
+     overlaps book logic. A bright, clean, child-friendly sci-fi lab: rounded
+     wall panels near the edges, soft circuit lines, tiny glowing sparkles,
+     top-corner light strips and a soft floor glow. Centre stays clean.
      =================================================================== -->
-<div class="desert-bg" id="desertBg" aria-hidden="true">
-  <!-- soft rounded dunes -->
-  <div class="dune dune-back"></div>
-  <div class="dune dune-mid"></div>
-  <div class="dune dune-front"></div>
-  <!-- turquoise wave accent near the bottom -->
-  <div class="desert-wave"></div>
-  <!-- small palm-tree silhouettes near each lower corner -->
-  <svg class="palm palm-left" viewBox="0 0 120 200" aria-hidden="true">
-    <path d="M58 200 C56 150 55 110 57 80 C50 78 44 82 40 90 C42 78 50 72 58 74 C54 60 46 54 36 54 C48 46 60 52 62 66 C66 52 76 46 88 50 C78 52 70 60 66 74 C76 70 86 76 88 88 C82 80 74 78 66 82 C68 112 66 152 64 200 Z" fill="var(--desert-purple)"/>
-    <ellipse cx="61" cy="70" rx="6" ry="6" fill="var(--desert-purple)"/>
+<div class="lab-bg" id="labBg" aria-hidden="true">
+  <!-- large rounded wall panels near the outer edges -->
+  <div class="lab-panel panel-left"></div>
+  <div class="lab-panel panel-right"></div>
+  <div class="lab-panel panel-tl"></div>
+  <div class="lab-panel panel-br"></div>
+
+  <!-- soft curved circuit lines + connector dots -->
+  <svg class="lab-circuit" viewBox="0 0 1440 810" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+    <g fill="none" stroke="var(--lab-blue)" stroke-width="2" opacity="0.35" stroke-linecap="round">
+      <path d="M-20 150 C 180 150 240 70 420 70"/>
+      <path d="M1460 210 C 1260 210 1200 130 1020 130"/>
+      <path d="M-20 680 C 220 680 300 740 520 740"/>
+      <path d="M1460 640 C 1240 640 1160 700 960 700"/>
+    </g>
+    <g fill="var(--lab-purple)" opacity="0.4">
+      <circle cx="420" cy="70" r="6"/>
+      <circle cx="1020" cy="130" r="6"/>
+      <circle cx="520" cy="740" r="6"/>
+      <circle cx="960" cy="700" r="6"/>
+    </g>
   </svg>
-  <svg class="palm palm-right" viewBox="0 0 120 200" aria-hidden="true">
-    <path d="M58 200 C56 150 55 110 57 80 C50 78 44 82 40 90 C42 78 50 72 58 74 C54 60 46 54 36 54 C48 46 60 52 62 66 C66 52 76 46 88 50 C78 52 70 60 66 74 C76 70 86 76 88 88 C82 80 74 78 66 82 C68 112 66 152 64 200 Z" fill="var(--desert-purple)"/>
-    <ellipse cx="61" cy="70" rx="6" ry="6" fill="var(--desert-purple)"/>
-  </svg>
-  <!-- a few subtle sparkles -->
-  <span class="sparkle" style="top:16%; left:22%;"></span>
-  <span class="sparkle" style="top:26%; left:74%; animation-delay:.9s;"></span>
-  <span class="sparkle" style="top:12%; left:54%; animation-delay:1.7s;"></span>
-  <span class="sparkle" style="top:38%; left:12%; animation-delay:2.4s;"></span>
-  <span class="sparkle" style="top:32%; left:88%; animation-delay:1.2s;"></span>
+
+  <!-- rounded blue light strips near the top corners -->
+  <div class="lab-strip strip-left"></div>
+  <div class="lab-strip strip-right"></div>
+
+  <!-- a few tiny glowing sparkles -->
+  <span class="lab-spark" style="top:16%; left:22%;"></span>
+  <span class="lab-spark" style="top:26%; left:74%; animation-delay:.9s;"></span>
+  <span class="lab-spark" style="top:12%; left:54%; animation-delay:1.7s;"></span>
+  <span class="lab-spark" style="top:38%; left:12%; animation-delay:2.4s;"></span>
+  <span class="lab-spark" style="top:32%; left:88%; animation-delay:1.2s;"></span>
+
+  <!-- soft futuristic floor glow near the bottom -->
+  <div class="lab-floor"></div>
 </div>
 
 <div class="scene">
@@ -113,7 +130,11 @@
             <div class="cover-holder">
             <div class="cover" id="cover">
               <div class="face front">
-                <div class="cover-img"></div>
+                <div class="cover-img">
+                  <!-- Static poster: coverpage.mp4's first frame (never played). -->
+                  <video class="cover-poster" src="assets/coverpage.mp4"
+                         muted playsinline preload="auto" tabindex="-1" aria-hidden="true"></video>
+                </div>
                 <div class="back-fill"></div>
                 <div class="curl"></div>
                 <button class="play-btn" id="hint" type="button" aria-label="Play — open the book"><span class="play-icon"></span></button>
