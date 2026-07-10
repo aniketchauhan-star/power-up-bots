@@ -76,7 +76,10 @@ function makeMedia(page) {
     media.playsInline = true;
     media.setAttribute("playsinline", "");            // iOS Safari inline playback
     media.setAttribute("webkit-playsinline", "");
-    media.preload = "auto";
+    // Lazy by default: DON'T download every page video up front (that made the
+    // initial load crawl). Only the current + next page are promoted to "auto"
+    // (see prefetchAround), so the book is ready fast and flips stay instant.
+    media.preload = "none";
     // Tap the video to (re)start it WITH sound — a guaranteed user gesture, so
     // browsers that blocked the auto-start's audio will now allow it.
     media.addEventListener("click", function () {
@@ -200,12 +203,27 @@ function renderLeaves() {
   updateZ();
 }
 
+/* Lazily buffer ONLY the current page's video and the very next one. This keeps
+   the initial load fast (we never download all 10 videos at once) while a
+   forward flip still lands on an already-buffered video. Idempotent. */
+function prefetchAround(idx) {
+  [idx, idx + 1].forEach(function (i) {
+    const leaf = leaves[i];
+    if (!leaf) return;
+    const v = leaf.querySelector("video.page-media");
+    if (!v || v.dataset.prefetched) return;
+    v.dataset.prefetched = "1";
+    try { v.preload = "auto"; v.load(); } catch (_) {}
+  });
+}
+
 /* ---- Per-page media -----------------------------------------------------
    Play the CURRENT page's video (pause every other), and pop the current page's
    speech bubble in ONCE, only after the page has fully settled. Called after
    each flip completes and once the cover has finished opening. */
 function refreshMedia() {
   const idx = flipped;                         // the front-most page right now
+  prefetchAround(idx);                          // make sure this + the next page are buffered
   leaves.forEach(function (leaf, i) {
     const v = leaf.querySelector("video.page-media");
     if (!v) return;
@@ -313,20 +331,21 @@ function openBook() {
   updateProgress();
 }
 
-/* Unlock all <video> elements within a user gesture so a later programmatic
-   play() starts instantly and is allowed to have sound. */
+/* Unlock video playback within the opening tap gesture. We only prime the FIRST
+   page's video: a single play() gives the document "sticky activation", after
+   which every later page video is allowed to play WITH sound too — so we no
+   longer force all 10 videos to download up front (that was the slow load). */
 function primeVideos() {
-  leaves.forEach(function (leaf) {
-    const v = leaf.querySelector("video.page-media");
-    if (!v) return;
-    try {
-      v.muted = true;
-      const p = v.play();                 // start within the gesture → element is now "activated"
-      if (p && p.catch) p.catch(function () {});
-      v.pause();                          // pause SYNCHRONOUSLY (no async race that could
-      v.currentTime = 0;                  // pause the video right after it really starts)
-    } catch (_) {}
-  });
+  const first = leaves[0] && leaves[0].querySelector("video.page-media");
+  if (!first) return;
+  try {
+    first.preload = "auto";               // ensure the opening page buffers now
+    first.muted = true;
+    const p = first.play();               // start within the gesture → document is now "activated"
+    if (p && p.catch) p.catch(function () {});
+    first.pause();                        // pause synchronously right after it really starts
+    first.currentTime = 0;
+  } catch (_) {}
 }
 
 /* ==========================================================================
