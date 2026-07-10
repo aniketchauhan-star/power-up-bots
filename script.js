@@ -176,6 +176,8 @@ let flipped = 0;         // how many leaves are currently turned to the left
 let animating = false;   // guard so a new turn can't start mid-flip
 const FLIP_MS = 1150;    // keep in sync with --flip-ms in styles.css
 const COVER_OPEN_MS = 6000;  // keep in sync with the coverOpen animation in styles.css
+const VIDEO_START_DELAY_MS = 3000;  // after a page lands, wait this long before its video (+audio) starts
+let videoStartTimer = null;  // pending "start the landed page's video" timeout (cancelled on re-flip)
 
 /* ---- Responsive: scale the FIXED 1280x720 book to fit the viewport --------
    only this CSS transform scale changes, so the paper curl is never distorted. */
@@ -221,23 +223,35 @@ function prefetchAround(idx) {
    Play the CURRENT page's video (pause every other), and pop the current page's
    speech bubble in ONCE, only after the page has fully settled. Called after
    each flip completes and once the cover has finished opening. */
-function refreshMedia() {
+function refreshMedia(delayMs) {
+  // How long to wait after the page settles before its video plays. Defaults to
+  // VIDEO_START_DELAY_MS (a normal flip); openBook passes 0 for the first page.
+  if (delayMs == null) delayMs = VIDEO_START_DELAY_MS;
   const idx = flipped;                         // the front-most page right now
   prefetchAround(idx);                          // make sure this + the next page are buffered
+  // Pause every OTHER page's video right away; the current page's video is started
+  // below, after a short delay so the page has a beat to settle first.
   leaves.forEach(function (leaf, i) {
+    if (i === idx) return;
     const v = leaf.querySelector("video.page-media");
-    if (!v) return;
-    if (i === idx) {
-      try {
-        if (v.ended) v.currentTime = 0;
-        v.muted = false;                        // try WITH sound (sticky activation from Play)
-        const p = v.play();
-        if (p && p.catch) p.catch(function () { v.muted = true; v.play().catch(function () {}); });
-      } catch (_) {}
-    } else {
-      try { v.pause(); } catch (_) {}
-    }
+    if (v) { try { v.pause(); } catch (_) {} }
   });
+  // Cancel any start still pending from a previous flip, then (re)arm this page's.
+  clearTimeout(videoStartTimer);
+  const startCurrentVideo = function () {
+    if (flipped !== idx) return;                // reader flipped away during the delay → skip
+    if (isGameOverlayOpen) return;              // a game took over → do not play behind it
+    const v = leaves[idx] && leaves[idx].querySelector("video.page-media");
+    if (!v) return;
+    try {
+      if (v.ended) v.currentTime = 0;
+      v.muted = false;                          // try WITH sound (sticky activation from Play)
+      const p = v.play();
+      if (p && p.catch) p.catch(function () { v.muted = true; v.play().catch(function () {}); });
+    } catch (_) {}
+  };
+  if (delayMs > 0) videoStartTimer = setTimeout(startCurrentVideo, delayMs);
+  else startCurrentVideo();
   const cur = leaves[idx];
   const bub = cur && cur.querySelector(".bubble");
   if (bub && !bub.dataset.revealed) {           // reveal once — "for one time"
@@ -315,8 +329,8 @@ function openBook() {
   primeVideos();
   // Start the page-1 video RIGHT NOW — instantly, within the tap gesture (so it has
   // sound) — so it is already playing as the (slow) cover swings open, instead of
-  // sitting frozen until the open finishes.
-  refreshMedia();
+  // sitting frozen until the open finishes. No delay here (0) — page 1 plays now.
+  refreshMedia(0);
   // Once the cover has FULLY opened (the slow, dramatic hinge-open), park the cover,
   // lift the pages ABOVE it, hand over pointer events, and mark the book READY.
   setTimeout(function () {
@@ -326,7 +340,7 @@ function openBook() {
     flipbookEl.style.pointerEvents = "auto";
     ready = true;
     updateProgress();
-    refreshMedia();                       // re-assert (idempotent safety net)
+    refreshMedia(0);                      // re-assert page 1 (idempotent safety net)
   }, COVER_OPEN_MS + 50);                 // just after the cover-open animation
   updateProgress();
 }
@@ -713,6 +727,7 @@ function advanceToVisiblePage(destPage) {
 
 /* Pause any page video/audio so nothing plays behind an open game. */
 function pauseAllPageMedia() {
+  clearTimeout(videoStartTimer);          // drop any pending "start the landed video" timer
   leaves.forEach(function (leaf) {
     const v = leaf.querySelector("video.page-media");
     if (v) { try { v.pause(); } catch (_) {} }
