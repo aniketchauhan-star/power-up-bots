@@ -1,0 +1,10 @@
+# OS / editor junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencies / build
+node_modules/
+
+# Vercel local config
+.vercel/

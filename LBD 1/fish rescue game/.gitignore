@@ -1,0 +1,8 @@
+node_modules/
+.sixth/
+
+# Scratch / experiment files
+_*.js
+_*.png
+_*.html
+_bubble_test.*

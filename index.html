@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  THE STORY NIGHT  —  interactive 3D flipbook (Neel & the dragon)
+  ----------------------------------------------------------------------------
+  • No build step, no frameworks. Just open this file in any modern browser.
+  • A real 3D hardcover book: it has thickness, a spine, sits angled and casts a
+    soft shadow. Tap PLAY to open it (the cover swings on the spine), then flip.
+  • Full-bleed picture-book pages: page 1 is a video, pages 2-4 are scenes with
+    a speech bubble that pops in once you fully land on the page.
+  • Structure is split into THREE files:
+        index.html   → this markup
+        styles.css   → all styling + the night theme + animations
+        script.js    → the flip engine + the page content (EDIT PAGES THERE)
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>The Story Night</title>
+
+<!-- ── Google Fonts: Fredoka (headings + speech bubbles) + Patrick Hand & Caveat ── -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fredoka:wght@500;600;700&family=Patrick+Hand&display=swap"
+  rel="stylesheet"
+/>
+
+<!-- All styling lives in styles.css -->
+<link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+<!-- Landscape lock: on phones/tablets (touch), the book shows only in landscape.
+     In portrait the scene is hidden and this rotate prompt is shown instead. -->
+<div class="rotate-notice" id="rotateNotice">
+  <div class="rotate-inner">
+    <div class="rotate-icon">🔄</div>
+    <div class="rotate-text">Please rotate your device<br />to landscape to read</div>
+  </div>
+</div>
+<!-- ===================================================================
+     OUTER DESERT BACKGROUND — purely decorative, sits BEHIND the book.
+     Every element here is pointer-events:none and never overlaps book logic.
+     =================================================================== -->
+<div class="desert-bg" id="desertBg" aria-hidden="true">
+  <!-- soft rounded dunes -->
+  <div class="dune dune-back"></div>
+  <div class="dune dune-mid"></div>
+  <div class="dune dune-front"></div>
+  <!-- turquoise wave accent near the bottom -->
+  <div class="desert-wave"></div>
+  <!-- small palm-tree silhouettes near each lower corner -->
+  <svg class="palm palm-left" viewBox="0 0 120 200" aria-hidden="true">
+    <path d="M58 200 C56 150 55 110 57 80 C50 78 44 82 40 90 C42 78 50 72 58 74 C54 60 46 54 36 54 C48 46 60 52 62 66 C66 52 76 46 88 50 C78 52 70 60 66 74 C76 70 86 76 88 88 C82 80 74 78 66 82 C68 112 66 152 64 200 Z" fill="var(--desert-purple)"/>
+    <ellipse cx="61" cy="70" rx="6" ry="6" fill="var(--desert-purple)"/>
+  </svg>
+  <svg class="palm palm-right" viewBox="0 0 120 200" aria-hidden="true">
+    <path d="M58 200 C56 150 55 110 57 80 C50 78 44 82 40 90 C42 78 50 72 58 74 C54 60 46 54 36 54 C48 46 60 52 62 66 C66 52 76 46 88 50 C78 52 70 60 66 74 C76 70 86 76 88 88 C82 80 74 78 66 82 C68 112 66 152 64 200 Z" fill="var(--desert-purple)"/>
+    <ellipse cx="61" cy="70" rx="6" ry="6" fill="var(--desert-purple)"/>
+  </svg>
+  <!-- a few subtle sparkles -->
+  <span class="sparkle" style="top:16%; left:22%;"></span>
+  <span class="sparkle" style="top:26%; left:74%; animation-delay:.9s;"></span>
+  <span class="sparkle" style="top:12%; left:54%; animation-delay:1.7s;"></span>
+  <span class="sparkle" style="top:38%; left:12%; animation-delay:2.4s;"></span>
+  <span class="sparkle" style="top:32%; left:88%; animation-delay:1.2s;"></span>
+</div>
+
+<div class="scene">
+  <!-- warm golden glow behind the book -->
+  <div class="book-glow" aria-hidden="true"></div>
+  <div class="stage">
+    <!-- Fixed 1280×720 book layer. JS scales it (transform) to fit the screen. -->
+    <div class="flip-scale" id="flipScale">
+    <!-- INNER scale wrapper: the open motion runs here, so it composes with the
+         outer responsive scale of .flip-scale. -->
+    <div class="book-stage" id="bookStage">
+    <!-- Outer hardcover outline — visible once the book is open -->
+    <div class="book-frame"></div>
+    <div class="floor-shadow"></div>
+
+    <!-- The page-turning book mounts here (JS injects one .leaf per page).
+         Sits beneath the 3D cover layer; revealed once the cover swings open. -->
+    <div id="flipbook"></div>
+
+    <!-- Moving shadow the opening cover casts on the inside page. -->
+    <div class="cover-cast"></div>
+
+    <!-- The 3D hardcover + cover-opening animation (own perspective layer). -->
+    <div class="cover-scene" id="coverScene">
+    <div class="book-float" id="bookFloat">
+      <div class="book-pop" id="bookPop">
+        <div class="book" id="book">
+          <div class="book-inner" id="bookInner">
+
+            <!-- Open-book back cover backing -->
+            <div class="book-body"></div>
+
+            <!-- The 3D page block that gives the closed book its thickness -->
+            <div class="pageblock">
+              <div class="pbf pb-back"></div>
+              <div class="pbf pb-left"></div>
+              <div class="pbf pb-right"></div>
+              <div class="pbf pb-top"></div>
+              <div class="pbf pb-bottom"></div>
+              <div class="pbf pb-front"></div>
+            </div>
+
+            <!-- Front hardcover (last so it stacks in front when closed). -->
+            <div class="cover-holder">
+            <div class="cover" id="cover">
+              <div class="face front">
+                <div class="cover-img"></div>
+                <div class="back-fill"></div>
+                <div class="curl"></div>
+                <button class="play-btn" id="hint" type="button" aria-label="Play — open the book"><span class="play-icon"></span></button>
+              </div>
+              <div class="face back">
+                <div class="line">✦ &nbsp; ☾ &nbsp; ✦</div>
+              </div>
+            </div>
+            </div><!-- /cover-holder -->
+
+          </div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /cover-scene -->
+
+    <!-- Flat, top-most, transparent tap zone that only OPENS the book. -->
+    <div class="tap-catcher" id="tapCatcher"></div>
+    </div><!-- /book-stage -->
+    </div><!-- /flip-scale -->
+  </div>
+
+  <!-- Progress read-out -->
+  <div class="toolbar">
+    <div class="progress" id="progress" style="visibility:hidden"></div>
+  </div>
+</div>
+
+<!-- Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners
+     (bottom-left = back, bottom-right = forward). -->
+<button class="corner-arrow back" id="cornerPrev" aria-label="Previous page">
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
+  </svg>
+</button>
+<button class="corner-arrow fwd" id="cornerNext" aria-label="Next page">
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
+  </svg>
+</button>
+
+<!-- (legacy hidden nav elements kept only so existing JS refs stay valid) -->
+<button class="arrow prev" id="prev" aria-label="Previous page">‹</button>
+<button class="arrow next" id="next" aria-label="Next page">›</button>
+
+<!-- ===================================================================
+     LBD GAME OVERLAY — a full-viewport layer that covers the whole book
+     while a learning game runs inside an iframe. Hidden by default; shown
+     by script.js when the reader tries to leave page 6 (LBD 1) or page 8
+     (LBD 2). Contains a loading layer, an error/retry layer and the frame.
+     =================================================================== -->
+<div class="lbd-overlay" id="lbdOverlay" aria-hidden="true">
+  <!-- child-friendly loading layer (shown until the game's iframe loads) -->
+  <div class="lbd-loading" id="lbdLoading">
+    <div class="lbd-spinner" aria-hidden="true"></div>
+    <div class="lbd-loading-text">Loading Game…</div>
+  </div>
+  <!-- error / retry layer (shown only if the game fails to load) -->
+  <div class="lbd-error" id="lbdError" hidden>
+    <div class="lbd-error-emoji" aria-hidden="true">🐠</div>
+    <div class="lbd-error-text">Oops! The game didn't load.</div>
+    <button class="lbd-retry" id="lbdRetry" type="button">Try Again</button>
+  </div>
+  <!-- the game itself; src is set/cleared by script.js -->
+  <iframe class="lbd-frame" id="lbdFrame" title="Learning game"
+          allow="autoplay; fullscreen" referrerpolicy="no-referrer"></iframe>
+</div>
+
+<!-- All behaviour lives in script.js -->
+<script src="script.js"></script>
+</body>
+</html>
