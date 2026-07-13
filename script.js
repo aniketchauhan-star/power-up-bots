@@ -53,22 +53,23 @@ const pages = [
   { type: "video", src: "assets/4.mp4" },   // Page 4
   { type: "image", src: "assets/5.png", activity: "shapes" },   // Page 5 — static shelf + hand nudge
   { type: "video", src: "assets/6.mp4" },   // Page 6
-  { type: "video", src: "assets/7.mp4" },   // Page 7
-  // Page 8 — static scene (7(1).png). A hand nudges the PINK RECTANGLE on the
-  // shelf; tapping it reveals 7(2).mp4 playing full-page ON TOP (its first frame
-  // matches the image, so the picture appears to come alive). Resets on flip.
-  { type: "image", src: "assets/7(1).png", activity: "reveal",
-    reveal: { video: "assets/7(2).mp4",
+  // Page 7 — COMBINED (was old pages 7 + 8) for smoother flow: 7.mp4 plays FIRST;
+  // the moment it ENDS the shelf scene 7(1).png appears AUTOMATICALLY (no flip)
+  // and a hand nudges the PINK RECTANGLE. Tapping it reveals 7(2).mp4 full-page.
+  //   intro:true → play THIS page's own video (7.mp4) first, keep the reveal
+  //                locked until it ends, then fade in `image` and start the tap.
+  { type: "video", src: "assets/7.mp4", activity: "reveal",
+    reveal: { intro: true, image: "assets/7(1).png", video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
               hand: { left: "17.6%", top: "19.4%" } } },
-  // Page 9 — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE. Tapping it
-  // plays 9.mp4 full-page ON TOP (holds on its last frame). Flip next → 10.mp4.
+  // Page 8 (was Page 9) — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE.
+  // Tapping it plays 9.mp4 full-page ON TOP (holds on its last frame). Next → 10.mp4.
   { type: "video", src: "assets/8.mp4", activity: "reveal",
     reveal: { video: "assets/9.mp4",
               spot: { left: "1.5%", top: "22%", width: "21%", height: "13%" },
               hand: { left: "11.7%", top: "28.5%" } } },
-  { type: "video", src: "assets/10.mp4" },  // Page 10
-  { type: "video", src: "assets/11.mp4" },  // Page 11
+  { type: "video", src: "assets/10.mp4" },  // Page 9  (was Page 10)
+  { type: "video", src: "assets/11.mp4" },  // Page 10 (was Page 11)
 ];
 
 /* ============================================================================
@@ -377,6 +378,7 @@ function ctrlStopVideo(c) {
 /* Tap → play the clip full-page ON TOP of the static image. */
 function ctrlClick(c) {
   if (c.playing || c.finished || !isCtrlActive(c)) return;    // one play per visit; no replay
+  if (c.cfg.intro && !c.introDone) return;                    // intro video still playing → not tappable yet
   if (!c.video || !c.overlay || !c.cfg.video) return;
   c.playing = true;
   ctrlHideHand(c);
@@ -402,17 +404,54 @@ function ctrlEnded(c) {
   if (c.video) { try { c.video.pause(); } catch (_) {} }      // stay paused on the final frame
   updateNextCue();                                            // reveal done → cue the next arrow
 }
-function ctrlInit(c) {                              // page just settled → fresh start
-  ctrlHideHand(c); ctrlStopVideo(c); ctrlSpotEnabled(c, true);
-  c.finished = false;
-  c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 600);
+/* INTRO pages only: the page's own base video (e.g. 7.mp4) just ENDED → fade in
+   the still shelf image (7(1).png) and START the tap-to-reveal interaction. */
+function ctrlIntroEnded(c) {
+  if (!c.cfg.intro || c.introDone) return;
+  if (!isCtrlActive(c)) return;                    // reader flipped away before it ended
+  c.introDone = true;
+  if (c.still) c.still.classList.add("show");      // freeze on the interactive shelf scene
+  ctrlSpotEnabled(c, true);                        // the pink rectangle is now tappable
+  clearTimeout(c.handTimer);
+  c.handTimer = setTimeout(function () {
+    if (isCtrlActive(c) && !c.playing && !c.finished) ctrlShowHand(c);
+  }, 500);
 }
-function ctrlReset(c) { ctrlHideHand(c); ctrlStopVideo(c); ctrlSpotEnabled(c, true); c.finished = false; }
+function ctrlInit(c) {                              // page just settled → fresh start
+  ctrlHideHand(c); ctrlStopVideo(c);
+  c.finished = false;
+  if (c.cfg.intro) {
+    // Phase 1: the base video plays first (started by refreshMedia). Keep the
+    // reveal locked + the still hidden until that video ends (ctrlIntroEnded).
+    c.introDone = false;
+    if (c.still) c.still.classList.remove("show");
+    ctrlSpotEnabled(c, false);
+    // Wire the base video's "ended" → start the reveal phase (once per controller).
+    if (!c.introWired) {
+      const base = leaves[c.leafIndex] && leaves[c.leafIndex].querySelector("video.page-media");
+      if (base) { base.addEventListener("ended", function () { ctrlIntroEnded(c); }); c.introWired = true; }
+    }
+  } else {
+    ctrlSpotEnabled(c, true);
+    c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 600);
+  }
+}
+function ctrlReset(c) {
+  ctrlHideHand(c); ctrlStopVideo(c); c.finished = false;
+  if (c.cfg.intro) {                               // rewind so a revisit replays the intro video
+    c.introDone = false;
+    if (c.still) c.still.classList.remove("show");
+    ctrlSpotEnabled(c, false);
+  } else {
+    ctrlSpotEnabled(c, true);
+  }
+}
 function ctrlSync(c) {
   const active = isCtrlActive(c);
   if (active && !c.isActive) { c.isActive = true; ctrlInit(c); }
   else if (!active && c.isActive) { c.isActive = false; ctrlReset(c); }
   else if (active && c.isActive && !c.playing && !c.finished &&
+           (!c.cfg.intro || c.introDone) &&        // don't nudge until the intro video is done
            c.hand && !c.hand.classList.contains("show")) {
     clearTimeout(c.handTimer);
     c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 350);
@@ -427,11 +466,25 @@ function revealOnTurnStart() { revealControllers.forEach(function (c) { ctrlHide
 function buildRevealActivity(page, leafIndex) {
   const c = {
     leafIndex: leafIndex, cfg: page.reveal || {},
-    hand: null, spot: null, overlay: null, video: null,
+    hand: null, spot: null, overlay: null, video: null, still: null,
     isActive: false, playing: false, finished: false, handTimer: null,
+    introDone: false, introWired: false,
   };
   const root = document.createElement("div");
   root.className = "p5-activity";                  // reuse the generic click-through container
+
+  // INTRO pages: a still image (e.g. 7(1).png) that fades in over the base video
+  // once it ends, giving the tap-to-reveal interaction a stable scene to sit on.
+  if (c.cfg.intro && c.cfg.image) {
+    const still = document.createElement("img");
+    still.className = "reveal-still";
+    still.src = c.cfg.image;
+    still.alt = "";
+    still.setAttribute("aria-hidden", "true");
+    still.addEventListener("pointerdown", function (e) { e.stopPropagation(); }); // don't start a flip-drag
+    root.appendChild(still);
+    c.still = still;
+  }
 
   // Single clickable hotspot over the target shape (starts tappable).
   const spot = document.createElement("button");

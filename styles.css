@@ -844,6 +844,17 @@
     position: absolute; inset: 0; width: 100%; height: 100%;
     object-fit: cover; display: block; border-radius: inherit;
   }
+  /* Intro-video reveal pages (e.g. combined page 7): once the base video ends,
+     this still (7(1).png) fades in over it and the tap interaction begins on top.
+     While hidden it must not swallow taps; once shown it does, so a stray tap
+     can't restart the base video underneath. The hotspot (z2) still sits above it. */
+  .reveal-still {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; display: block; border-radius: inherit; z-index: 1;
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transition: opacity .35s ease;
+  }
+  .reveal-still.show { opacity: 1; visibility: visible; pointer-events: auto; }
   /* gentle upward nudge-and-tap ×3, then a pause, then repeat — never a fast shake. */
   @keyframes p5HandNudge {
     0%   { transform: translateY(0) scale(1); }
