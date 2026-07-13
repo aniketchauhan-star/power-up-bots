@@ -88,6 +88,11 @@ function makeMedia(page) {
     media.playsInline = true;
     media.setAttribute("playsinline", "");            // iOS Safari inline playback
     media.setAttribute("webkit-playsinline", "");
+    // POSTER = the video's first-frame still (assets/posters/<n>.jpg). The <video>
+    // shows this image instead of a BLACK box while it buffers/decodes on a flip,
+    // so a page never flashes black. Replaced automatically once the clip plays.
+    media.setAttribute("poster",
+      page.poster || page.src.replace(/^assets\//, "assets/posters/").replace(/\.mp4$/i, ".jpg"));
     // Lazy by default: DON'T download every page video up front (that made the
     // initial load crawl). Only the current + next page are promoted to "auto"
     // (see prefetchAround), so the book is ready fast and flips stay instant.
@@ -517,6 +522,12 @@ function buildRevealActivity(page, leafIndex) {
   vid.setAttribute("playsinline", "");
   vid.setAttribute("webkit-playsinline", "");
   vid.preload = "auto";
+  // Poster = the reveal clip's first frame, so the overlay never flashes black
+  // between the tap and the clip painting its first frame.
+  if (c.cfg.video) {
+    vid.setAttribute("poster",
+      c.cfg.video.replace(/^assets\//, "assets/posters/").replace(/\.mp4$/i, ".jpg"));
+  }
   vid.addEventListener("ended", function () { ctrlEnded(c); });
   overlay.addEventListener("pointerdown", function (e) { e.stopPropagation(); });
   overlay.appendChild(vid);
