@@ -221,7 +221,7 @@
   /* Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners. */
   .corner-arrow {
     position: fixed; bottom: clamp(4px, 1.2vh, 16px); z-index: 700;  /* sit a bit lower */
-    width: clamp(56px, 7vw, 78px); height: clamp(56px, 7vw, 78px);
+    width: clamp(76px, 9.5vw, 104px); height: clamp(76px, 9.5vw, 104px);
     border: none; background: none; color: #1E2A55;   /* deep navy — matches the book's top cover blue */
     filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55));           /* legible over any page */
     display: none; align-items: center; justify-content: center;
