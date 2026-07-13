@@ -263,8 +263,8 @@
      no rounded pill. Only the arrow glyph shows, same position/size, clickable. */
   /* Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners. */
   .corner-arrow {
-    position: fixed; bottom: clamp(4px, 1.2vh, 16px); z-index: 700;  /* sit a bit lower */
-    width: clamp(56px, 7vw, 78px); height: clamp(56px, 7vw, 78px);
+    position: fixed; bottom: clamp(4px, 1vh, 14px); z-index: 700;  /* hug the very bottom */
+    width: clamp(84px, 9.5vw, 132px); height: clamp(84px, 9.5vw, 132px);
     border: none; background: none; color: #1E2A55;   /* deep navy — matches the book's top cover blue */
     filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55));           /* legible over any page */
     display: none; align-items: center; justify-content: center;
@@ -275,10 +275,34 @@
   .corner-arrow:hover  { transform: scale(1.12); }
   .corner-arrow:active { transform: scale(0.9); }
   .corner-arrow[disabled] { opacity: 0.22; pointer-events: none; }
-  .corner-arrow.back { left: clamp(12px, 2.5vw, 34px); }
-  .corner-arrow.fwd  { right: clamp(12px, 2.5vw, 34px); }
+  /* Hug the extreme corners (same offset on both sides → perfectly symmetric) so
+     the enlarged arrows clear the book's bottom corners instead of overlapping them. */
+  .corner-arrow.back { left:  clamp(4px, 1vw, 14px); }
+  .corner-arrow.fwd  { right: clamp(4px, 1vw, 14px); }
   .corner-arrow svg  { width: 58%; height: 58%; }
   .corner-arrow.back svg { transform: scaleX(-1); }   /* mirror the forward arrow */
+
+  /* Once every interaction on the current page is done, the FORWARD arrow
+     pulsates (gentle scale + blue glow) to clearly signal "tap here next". The
+     JS toggles .pulse on #cornerNext; it's removed while flipping / on pages
+     with unfinished activities. */
+  @keyframes cornerPulse {
+    0%, 100% { transform: scale(1);
+               filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55)); }
+    50%      { transform: scale(1.18);
+               filter: drop-shadow(0 2px 10px rgba(0,0,0,0.55))
+                       drop-shadow(0 0 16px rgba(113,150,246,0.95)); }
+  }
+  .corner-arrow.pulse { animation: cornerPulse 1.05s ease-in-out infinite; }
+  /* Hover/active still feel responsive: pause the pulse so their scale wins. */
+  .corner-arrow.pulse:hover,
+  .corner-arrow.pulse:active { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) {
+    /* No scaling for motion-sensitive users — a steady glow instead. */
+    .corner-arrow.pulse { animation: none;
+      filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55))
+              drop-shadow(0 0 14px rgba(113,150,246,0.95)); }
+  }
 
   /* The old fixed side-arrows are replaced by the corner arrows above. */
   .arrow { display: none !important; }

@@ -97,7 +97,10 @@ function makeMedia(page) {
       media.muted = false;
       try { if (media.ended) media.currentTime = 0; } catch (_) {}
       const p = media.play(); if (p && p.catch) p.catch(function () {});
+      updateNextCue();                                  // replaying → hide the "next" cue until it ends again
     });
+    // A plain page's video ENDING is its "interaction complete" — cue the next arrow.
+    media.addEventListener("ended", function () { updateNextCue(); });
   } else {
     media.decoding = "async";
     media.alt = page.alt || "story page";
@@ -298,6 +301,7 @@ function onPage5VideoEnded() {
   stopPage5Video();
   p5Step++;                                   // move to the next shape (or "done")
   updatePage5Spots();
+  updateNextCue();                            // all shapes done → cue the next arrow
   if (isVisiblePage5Active() && p5Step < P5_STEPS.length) {
     clearTimeout(p5HandTimer);
     p5HandTimer = setTimeout(function () {
@@ -396,6 +400,7 @@ function ctrlEnded(c) {
   c.finished = true;
   ctrlHideHand(c);
   if (c.video) { try { c.video.pause(); } catch (_) {} }      // stay paused on the final frame
+  updateNextCue();                                            // reveal done → cue the next arrow
 }
 function ctrlInit(c) {                              // page just settled → fresh start
   ctrlHideHand(c); ctrlStopVideo(c); ctrlSpotEnabled(c, true);
@@ -635,6 +640,7 @@ function refreshMedia(delayMs) {
   }
   page5Sync();     // show/hide the Page-5 hand nudge as the front page settles
   revealSync();    // show/hide the reveal-page (7(1).png) hand nudge as it settles
+  updateNextCue(); // re-evaluate the "next" cue for the freshly-settled page
 }
 
 /* ---- Navigation (drives the CSS leaf flip) ------------------------------ */
@@ -681,6 +687,37 @@ function updateProgress() {
   nextBtn.disabled = flipped >= totalPages - 1;
   if (cornerPrev) cornerPrev.disabled = !ready || flipped <= 0;                // grey the corner
   if (cornerNext) cornerNext.disabled = !ready || flipped >= totalPages - 1;   // arrows at the ends
+  updateNextCue();                                                             // pulse "next" when the page is done
+}
+
+/* ---- "Next page" cue -----------------------------------------------------
+   Has the reader FINISHED everything the current page asks of them?
+     • page 5 (shapes) → all three shapes have played (p5Step past the last).
+     • reveal pages    → the revealed clip has finished (controller.finished).
+     • plain video     → the page video has played to its end.
+     • plain image     → nothing to do → ready immediately.
+   On the last page there's nowhere to go, so it never cues. */
+function currentPageComplete() {
+  if (!opened || !ready || isGameOverlayOpen || animating) return false;
+  if (flipped >= totalPages - 1) return false;          // last page → no next
+  const page = pages[flipped];
+  if (!page) return false;
+  if (page.activity === "shapes") return p5Step >= P5_STEPS.length;
+  if (page.activity === "reveal") {
+    const c = revealControllers.find(function (rc) { return rc.leafIndex === flipped; });
+    return !!(c && c.finished);
+  }
+  if (page.type === "video") {
+    const v = leaves[flipped] && leaves[flipped].querySelector("video.page-media");
+    return !!(v && v.ended);
+  }
+  return true;                                           // static image, no interaction
+}
+
+/* Toggle the pulsating "tap next" cue on the forward corner arrow. */
+function updateNextCue() {
+  if (!cornerNext) return;
+  cornerNext.classList.toggle("pulse", currentPageComplete() && !cornerNext.disabled);
 }
 
 /* ---- Open the 3D cover, then hand off to the page-turning book ---------- */
@@ -1110,6 +1147,7 @@ function advanceToVisiblePage(destPage) {
 function pauseAllPageMedia() {
   page5OnTurnStart();                     // a page is turning → hide the Page-5 hand nudge
   revealOnTurnStart();                    // …and the reveal-page nudge / stop its video
+  if (cornerNext) cornerNext.classList.remove("pulse");  // a flip started → drop the "next" cue
   clearTimeout(videoStartTimer);          // drop any pending "start the landed video" timer
   leaves.forEach(function (leaf) {
     const v = leaf.querySelector("video.page-media");
