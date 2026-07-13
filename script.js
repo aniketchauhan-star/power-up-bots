@@ -142,7 +142,18 @@ pages.forEach(function (page, i) {
 
   const front = document.createElement("div");
   front.className = "face front";
-  front.appendChild(makeMedia(page));                       // full-bleed image / video
+  const mediaEl = makeMedia(page);
+  front.appendChild(mediaEl);                               // full-bleed image / video
+  if (page.type === "video") {
+    // The page's main interaction is its video. When it ENDS on the current page,
+    // pulse the forward arrow; while it PLAYS (incl. a tap-to-replay), stop pulsing.
+    mediaEl.addEventListener("ended", function () {
+      if (flipped === i) cueNextPulse();
+    });
+    mediaEl.addEventListener("play", function () {
+      if (flipped === i) clearNextPulse();
+    });
+  }
   if (page.bubble) front.appendChild(makeBubble(page.bubble)); // speech bubble (revealed on land)
   const curl = document.createElement("div");               // moving page-curl shading
   curl.className = "curl";
@@ -292,6 +303,20 @@ function goPrev() {
   animating = true;
   flipped--;
   turnLeaf(leaves[flipped]);
+}
+
+/* ---- "Next action" cue --------------------------------------------------
+   Once a page's interactions are finished (its video has played to the end),
+   the FORWARD corner arrow pulsates to point the reader at the next action.
+   Never on the last page, while a game is open, or before the book is ready. */
+function clearNextPulse() {
+  if (cornerNext) cornerNext.classList.remove("pulse-cue");
+  if (nextBtn)    nextBtn.classList.remove("pulse-cue");
+}
+function cueNextPulse() {
+  if (!ready || isGameOverlayOpen) return;   // not while opening or behind a game
+  if (flipped >= totalPages - 1) return;     // already on the last page — nowhere to go
+  if (cornerNext && !cornerNext.disabled) cornerNext.classList.add("pulse-cue");
 }
 
 /* ---- Progress read-out ("Page X / N") ----------------------------------- */
@@ -729,6 +754,7 @@ function advanceToVisiblePage(destPage) {
 /* Pause any page video/audio so nothing plays behind an open game. */
 function pauseAllPageMedia() {
   clearTimeout(videoStartTimer);          // drop any pending "start the landed video" timer
+  clearNextPulse();                       // a flip / game just started → drop the "next" cue
   leaves.forEach(function (leaf) {
     const v = leaf.querySelector("video.page-media");
     if (v) { try { v.pause(); } catch (_) {} }

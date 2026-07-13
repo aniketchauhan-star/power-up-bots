@@ -237,6 +237,22 @@
   .corner-arrow svg  { width: 58%; height: 58%; }
   .corner-arrow.back svg { transform: scaleX(-1); }   /* mirror the forward arrow */
 
+  /* "Next action" cue — once the current page's interactions are done (its video
+     has played to the end), the FORWARD arrow gently pulsates to invite the flip.
+     Cleared the moment the reader navigates, replays the video, or a game opens. */
+  @keyframes nextCue {
+    0%, 100% { transform: scale(1);
+      filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55)); }
+    50%      { transform: scale(1.16);
+      filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55))
+              drop-shadow(0 0 12px rgba(255,206,74,0.95)); }
+  }
+  .corner-arrow.pulse-cue         { animation: nextCue 1.15s ease-in-out infinite; }
+  .corner-arrow.pulse-cue:hover   { animation: none; }   /* let hover/active take over on interaction */
+  @media (prefers-reduced-motion: reduce) {
+    .corner-arrow.pulse-cue { animation: none; }
+  }
+
   /* The old fixed side-arrows are replaced by the corner arrows above. */
   .arrow { display: none !important; }
 
