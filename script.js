@@ -61,7 +61,7 @@ const pages = [
   { type: "video", src: "assets/7.mp4", activity: "reveal",
     reveal: { intro: true, image: "assets/7(1).png", video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
-              hand: { left: "15%", top: "19.4%" } } },
+              hand: { left: "7%", top: "19.4%" } } },
   // Page 8 (was Page 9) — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE.
   // Tapping it plays 9.mp4 full-page ON TOP (holds on its last frame). Next → 10.mp4.
   { type: "video", src: "assets/8.mp4", activity: "reveal",
