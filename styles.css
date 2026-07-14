@@ -263,8 +263,9 @@
      no rounded pill. Only the arrow glyph shows, same position/size, clickable. */
   /* Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners. */
   .corner-arrow {
-    position: fixed; bottom: clamp(4px, 1vh, 14px); z-index: 700;  /* hug the very bottom */
-    width: clamp(84px, 9.5vw, 132px); height: clamp(84px, 9.5vw, 132px);
+    position: fixed; bottom: clamp(-14px, -0.4vh, -6px); z-index: 700;  /* hug the very bottom */
+    width: 132px; height: 132px;   /* FIXED px (not vw) so both arrows are the SAME size on
+                                      every laptop / resolution instead of shrinking with width */
     border: none; background: none; color: #1E2A55;   /* deep navy — matches the book's top cover blue */
     filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55));           /* legible over any page */
     display: none; align-items: center; justify-content: center;
@@ -674,9 +675,10 @@
      transparency). No CSS disc/ring/shadow: the button is a transparent wrapper
      so only the artwork shows. Sits low-centre; tapping it opens the book. */
   .play-btn {
-    position: absolute; left: 50%; top: 74%; transform: translate(-50%, -50%);
+    position: absolute; left: 51.5%; top: 68%; transform: translate(-50%, -50%);
     z-index: 2;                                 /* above the full-bleed artwork */
-    width: clamp(78px, 9.5vw, 122px); height: auto;   /* height follows the PNG's aspect */
+    width: 122px; height: auto;   /* FIXED px (not vw): scales only with the book stage,
+                                     so it looks identical on every screen / zoom level */
     background: none; border: none; padding: 0; cursor: pointer;
     display: inline-flex; align-items: center; justify-content: center;
     animation: playBreathe 2.6s ease-in-out infinite;   /* gentle breathing (scale only) */

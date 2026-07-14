@@ -29,7 +29,7 @@
 />
 
 <!-- All styling lives in styles.css -->
-<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="styles.css?v=2" />
 </head>
 
 <body>
@@ -137,7 +137,7 @@
                 </div>
                 <div class="back-fill"></div>
                 <div class="curl"></div>
-                <button class="play-btn" id="hint" type="button" aria-label="Play — open the book"><img class="play-img" src="assets/play%20button.png" alt="Play" draggable="false" /></button>
+                <button class="play-btn" id="hint" data-align-id="playButton" type="button" aria-label="Play — open the book"><img class="play-img" src="assets/play%20button.png" alt="Play" draggable="false" /></button>
               </div>
               <div class="face back">
                 <div class="line">✦ &nbsp; ☾ &nbsp; ✦</div>
@@ -165,12 +165,12 @@
 
 <!-- Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners
      (bottom-left = back, bottom-right = forward). -->
-<button class="corner-arrow back" id="cornerPrev" aria-label="Previous page">
+<button class="corner-arrow back" id="cornerPrev" data-align-id="prevArrow" aria-label="Previous page">
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
   </svg>
 </button>
-<button class="corner-arrow fwd" id="cornerNext" aria-label="Next page">
+<button class="corner-arrow fwd" id="cornerNext" data-align-id="nextArrow" aria-label="Next page">
   <svg viewBox="0 0 48 48" aria-hidden="true">
     <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
   </svg>
@@ -204,6 +204,9 @@
 </div>
 
 <!-- All behaviour lives in script.js -->
-<script src="script.js"></script>
+<script src="script.js?v=2"></script>
+<!-- DEV-ONLY visual alignment tool. Self-gates to localhost, so it is completely
+     inert on the deployed site (kids never see it). Safe to leave in place. -->
+<script src="align.js?v=1"></script>
 </body>
 </html>
