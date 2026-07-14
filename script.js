@@ -61,7 +61,7 @@ const pages = [
   { type: "video", src: "assets/7.mp4", activity: "reveal",
     reveal: { intro: true, image: "assets/7(1).png", video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
-              hand: { left: "17.6%", top: "19.4%" } } },
+              hand: { left: "15%", top: "19.4%" } } },
   // Page 8 (was Page 9) — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE.
   // Tapping it plays 9.mp4 full-page ON TOP (holds on its last frame). Next → 10.mp4.
   { type: "video", src: "assets/8.mp4", activity: "reveal",
@@ -186,13 +186,13 @@ const P5_HAND_SVG =
 const P5_STEPS = [
   { key: "rectangle", video: "assets/5(rectangle).mp4",
     spot: { left: "33%", top: "21%", width: "36%", height: "20%" },
-    hand: { left: "48%", top: "27%" } },   // centred on the pink rectangles
+    hand: { left: "49%", top: "33%" } },   // centred on the pink rectangles
   { key: "green",     video: "assets/5(green).mp4",
     spot: { left: "35%", top: "45%", width: "30%", height: "21%" },
-    hand: { left: "47%", top: "53%" } },   // centred on the green blocks
+    hand: { left: "48%", top: "56%" } },   // centred on the green blocks
   { key: "circle",    video: "assets/5(circle).mp4",
     spot: { left: "34%", top: "69%", width: "32%", height: "20%" },
-    hand: { left: "47%", top: "80%" } },   // centred on the yellow circles
+    hand: { left: "48%", top: "79%" } },   // centred on the yellow circles
 ];
 
 /* Build the page-5 activity DOM. Called ONCE while the page-5 leaf is built. */

@@ -258,8 +258,8 @@
   /* ---- drag (pointer events cover mouse + touch) -------------------------- */
   function onPointerDown(e) {
     if (!active) return;
-    var t = e.target.closest ? e.target.closest("[data-align-id]") : null;
     if (ui.bar && ui.bar.contains(e.target)) return;   // toolbar clicks handled separately
+    var t = targetFrom(e);                             // the [data-align-id] under the pointer
     if (!t) { select(null); return; }
     e.preventDefault();
     e.stopPropagation();                                // suppress native click (openBook / goNext…)
@@ -288,8 +288,10 @@
 
   /* ---- keyboard: nudge selected by 1 / 10 stage-px ------------------------ */
   function onKeyDown(e) {
-    // global toggle
-    if (e.ctrlKey && e.altKey && (e.key === "a" || e.key === "A")) {
+    // global toggle — use e.code (layout-independent; AltGr/e.key can differ).
+    // Ctrl+Alt+A  OR  Ctrl+Alt+1  (either works).
+    if ((e.ctrlKey && e.altKey) &&
+        (e.code === "KeyA" || e.code === "Digit1" || e.key === "a" || e.key === "A" || e.key === "1")) {
       e.preventDefault(); toggle(); return;
     }
     if (!active || !selected) return;
@@ -340,11 +342,7 @@
   }
   function resetAll() {
     try { localStorage.removeItem(LS_KEY); } catch (_) {}
-    targets().forEach(function (el) {
-      el.style.left = el.style.top = el.style.right = el.style.bottom = "";
-      el.style.transform = el.style.margin = el.style.width = el.style.height = "";
-      el.style.zIndex = el.style.animation = "";
-    });
+    targets().forEach(clearInline);
     refreshToolbar();
     toast("Reset — reload to be 100% clean");
   }
@@ -377,6 +375,20 @@
     document.body.removeChild(ta);
   }
 
+  /* Resolve the draggable target under a pointer event. The hand nudge is made
+     grabbable in align mode via CSS (pointer-events:auto on the .p5-hand wrapper,
+     pointer-events:none on its inner <img>), so the wrapper is the event target. */
+  function targetFrom(e) {
+    return e.target && e.target.closest ? e.target.closest("[data-align-id]") : null;
+  }
+
+  /* Strip the inline styles this tool applies (position/transform/animation…). */
+  function clearInline(el) {
+    el.style.left = el.style.top = el.style.right = el.style.bottom = "";
+    el.style.transform = el.style.margin = el.style.width = el.style.height = "";
+    el.style.zIndex = el.style.animation = "";
+  }
+
   /* ---- activate / deactivate --------------------------------------------- */
   function activate() {
     if (active) return;
@@ -396,6 +408,11 @@
     if (!active) return;
     active = false;
     dragging = null;
+    // Clear the inline animation override we may have set while dragging so the
+    // hand nudge (and anything else) resumes its normal tutorial animation when
+    // align mode is off. Position/size previews are left as-is; a reload is fully
+    // clean, and Reset removes everything.
+    targets().forEach(function (el) { el.style.animation = ""; });
     document.body.classList.remove("algn-on");
     if (ui.bar) ui.bar.style.display = "none";
     if (selected) selected.removeAttribute("data-align-sel");
@@ -413,7 +430,13 @@
       "body.algn-on [data-align-id]{ outline:2px dashed #ff3db4 !important; outline-offset:1px; cursor:grab; }" +
       "body.algn-on [data-align-id]:hover{ outline-color:#00e0ff !important; }" +
       "body.algn-on [data-align-id][data-align-sel]{ outline:3px solid #ffd400 !important; }" +
-      "body.algn-on .p5-hand[data-align-id]{ opacity:1 !important; visibility:visible !important; animation:none !important; }" +
+      /* Hand nudge: force it visible, pause its transform animation, and make the
+         WRAPPER grabbable (its inner <img> is pointer-events:none so events land
+         on the wrapper). All scoped to align mode → normal behaviour when off. */
+      "body.algn-on .p5-hand[data-align-id]{ opacity:1 !important; visibility:visible !important;" +
+        " animation:none !important; pointer-events:auto !important; cursor:grab; touch-action:none; }" +
+      "body.algn-on .p5-hand[data-align-id]:active{ cursor:grabbing; }" +
+      "body.algn-on .p5-hand[data-align-id] *{ pointer-events:none !important; }" +
       "body.algn-on [data-align-id]::after{ content:attr(data-align-id); position:absolute; left:0; top:-16px;" +
         "font:700 10px/1.2 monospace; color:#fff; background:#ff3db4; padding:1px 4px; border-radius:3px;" +
         "white-space:nowrap; pointer-events:none; z-index:2147483000; }" +
@@ -445,6 +468,7 @@
   /* ---- boot --------------------------------------------------------------- */
   function boot() {
     document.addEventListener("keydown", onKeyDown, true);   // Ctrl+Alt+A always listens (localhost only)
+    console.log("[align] ready (localhost). Open ?align=true, or press Ctrl+Alt+A (or Ctrl+Alt+1). Click the page first.");
     var qs = new URLSearchParams(location.search);
     if (qs.get("align") === "true" || qs.get("align") === "1") activate();
   }
