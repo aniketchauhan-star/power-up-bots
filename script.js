@@ -61,13 +61,13 @@ const pages = [
   { type: "video", src: "assets/7.mp4", activity: "reveal",
     reveal: { intro: true, image: "assets/7(1).png", video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
-              hand: { left: "7%", top: "19.4%" } } },
+              hand: { left: "10%", top: "19.4%" } } },
   // Page 8 (was Page 9) — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE.
   // Tapping it plays 9.mp4 full-page ON TOP (holds on its last frame). Next → 10.mp4.
   { type: "video", src: "assets/8.mp4", activity: "reveal",
     reveal: { video: "assets/9.mp4",
               spot: { left: "1.5%", top: "22%", width: "21%", height: "13%" },
-              hand: { left: "11.7%", top: "28.5%" } } },
+              hand: { left: "11.7%", top: "31.5%" } } },
   { type: "video", src: "assets/10.mp4" },  // Page 9  (was Page 10)
   { type: "video", src: "assets/11.mp4" },  // Page 10 (was Page 11)
 ];
