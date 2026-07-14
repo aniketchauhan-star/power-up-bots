@@ -174,13 +174,11 @@ let p5IsActive = false;                           // is page 5 the settled, acti
 let p5Step = 0;                                   // 0=rectangle, 1=green, 2=circle, 3=done
 let p5Playing = false;                            // is a shape's clip currently on screen?
 
-// Friendly pointing HAND (NOT an emoji), finger up — points UP at the shape above it.
+// Tutorial HAND nudge — user-supplied asset (transparent .webp). object-fit:contain
+// keeps its natural aspect ratio inside the .p5-hand box (no stretch / crop / distort).
 const P5_HAND_SVG =
-  '<svg viewBox="0 0 84 104" width="100%" height="100%" aria-hidden="true" focusable="false">' +
-  '<path fill="#ffffff" stroke="#6E4FB8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" d="' +
-  'M40 8 c-6 0 -10 4 -10 10 v34 c-2 -3 -6 -6 -11 -4 c-5 2 -6 8 -3 13 l10 20 ' +
-  'c4 8 12 13 21 13 h6 c13 0 23 -10 23 -23 V52 c0 -5 -4 -8 -8 -8 c-1 0 -3 0 -4 1 ' +
-  'c0 -4 -3 -7 -8 -7 c-1 0 -3 0 -4 1 V18 c0 -6 -4 -10 -9 -10 z"/></svg>';
+  '<img src="assets/handNudge.webp" alt="" aria-hidden="true" draggable="false" ' +
+  'style="display:block;width:100%;height:100%;object-fit:contain;object-position:center;">';
 
 /* The sequence, in order. Positions are % of the 1280×720 page:
    • spot — the invisible clickable rectangle over that shelf's shapes.
@@ -188,13 +186,13 @@ const P5_HAND_SVG =
 const P5_STEPS = [
   { key: "rectangle", video: "assets/5(rectangle).mp4",
     spot: { left: "33%", top: "21%", width: "36%", height: "20%" },
-    hand: { left: "50%", top: "29%" } },   // centred on the pink rectangles
+    hand: { left: "47%", top: "36%" } },   // centred on the pink rectangles
   { key: "green",     video: "assets/5(green).mp4",
     spot: { left: "35%", top: "45%", width: "30%", height: "21%" },
-    hand: { left: "48%", top: "53%" } },   // centred on the green blocks
+    hand: { left: "45%", top: "60%" } },   // centred on the green blocks
   { key: "circle",    video: "assets/5(circle).mp4",
     spot: { left: "34%", top: "69%", width: "32%", height: "20%" },
-    hand: { left: "49%", top: "77%" } },   // centred on the yellow circles
+    hand: { left: "46%", top: "84%" } },   // centred on the yellow circles
 ];
 
 /* Build the page-5 activity DOM. Called ONCE while the page-5 leaf is built. */
