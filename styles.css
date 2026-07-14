@@ -263,8 +263,8 @@
      no rounded pill. Only the arrow glyph shows, same position/size, clickable. */
   /* Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners. */
   .corner-arrow {
-    position: fixed; bottom: clamp(-14px, -0.4vh, -6px); z-index: 700;  /* hug the very bottom */
-    width: 132px; height: 132px;   /* FIXED px (not vw) so both arrows are the SAME size on
+    position: fixed; bottom: -6px; z-index: 700;   /* fixed (not clamp) → identical on every screen */
+    width: 130px; height: 130px;   /* FIXED px (not vw) so both arrows are the SAME size on
                                       every laptop / resolution instead of shrinking with width */
     border: none; background: none; color: #1E2A55;   /* deep navy — matches the book's top cover blue */
     filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55));           /* legible over any page */
@@ -278,8 +278,10 @@
   .corner-arrow[disabled] { opacity: 0.22; pointer-events: none; }
   /* Hug the extreme corners (same offset on both sides → perfectly symmetric) so
      the enlarged arrows clear the book's bottom corners instead of overlapping them. */
-  .corner-arrow.back { left:  clamp(4px, 1vw, 14px); }
-  .corner-arrow.fwd  { right: clamp(4px, 1vw, 14px); }
+  /* Same fixed corner offset on both sides → the back arrow is a perfect mirror
+     of the next arrow (identical size + vertical position, mirrored horizontally). */
+  .corner-arrow.back { left:  14px; }
+  .corner-arrow.fwd  { right: 14px; }
   .corner-arrow svg  { width: 58%; height: 58%; }
   .corner-arrow.back svg { transform: scaleX(-1); }   /* mirror the forward arrow */
 

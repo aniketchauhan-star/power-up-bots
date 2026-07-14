@@ -61,13 +61,13 @@ const pages = [
   { type: "video", src: "assets/7.mp4", activity: "reveal",
     reveal: { intro: true, image: "assets/7(1).png", video: "assets/7(2).mp4",
               spot: { left: "3%", top: "11%", width: "29%", height: "17%" },
-              hand: { left: "10%", top: "19.4%" } } },
+              hand: { left: "11.14%", top: "21.5%" } } },
   // Page 8 (was Page 9) — the 8.mp4 scene plays; a hand nudges the PINK RECTANGLE.
   // Tapping it plays 9.mp4 full-page ON TOP (holds on its last frame). Next → 10.mp4.
   { type: "video", src: "assets/8.mp4", activity: "reveal",
     reveal: { video: "assets/9.mp4",
               spot: { left: "1.5%", top: "22%", width: "21%", height: "13%" },
-              hand: { left: "11.7%", top: "31.5%" } } },
+              hand: { left: "12.33%", top: "32%" } } },
   { type: "video", src: "assets/10.mp4" },  // Page 9  (was Page 10)
   { type: "video", src: "assets/11.mp4" },  // Page 10 (was Page 11)
 ];
@@ -186,13 +186,13 @@ const P5_HAND_SVG =
 const P5_STEPS = [
   { key: "rectangle", video: "assets/5(rectangle).mp4",
     spot: { left: "33%", top: "21%", width: "36%", height: "20%" },
-    hand: { left: "49%", top: "33%" } },   // centred on the pink rectangles
+    hand: { left: "51.95%", top: "34.01%" } },   // centred on the pink rectangles
   { key: "green",     video: "assets/5(green).mp4",
     spot: { left: "35%", top: "45%", width: "30%", height: "21%" },
-    hand: { left: "48%", top: "56%" } },   // centred on the green blocks
+    hand: { left: "50.58%", top: "57.56%" } },   // centred on the green blocks
   { key: "circle",    video: "assets/5(circle).mp4",
     spot: { left: "34%", top: "69%", width: "32%", height: "20%" },
-    hand: { left: "48%", top: "79%" } },   // centred on the yellow circles
+    hand: { left: "50.26%", top: "81.68%" } },   // centred on the yellow circles
 ];
 
 /* Build the page-5 activity DOM. Called ONCE while the page-5 leaf is built. */
@@ -740,6 +740,37 @@ function goPrev() {
   flipped--;
   turnLeaf(leaves[flipped]);
 }
+
+/* ---- DEV tooling hooks (used by align.js's screen navigator) -------------
+   Additive, unused by normal gameplay: let a tester jump straight to any page
+   — and to any page-5 shape step — without flipping/tapping through. */
+window.gotoPage = function (n) {
+  if (!opened || !ready) return false;                    // book must be open + settled
+  n = Math.max(0, Math.min(totalPages - 1, n | 0));
+  animating = false;                                      // drop any in-flight flip guard
+  flipped = n;
+  renderLeaves();                                         // snap flipped / z-index / pointer state
+  pauseAllPageMedia();
+  refreshMedia(0);                                        // play landed media + run page5/reveal sync
+  updateProgress();
+  return true;
+};
+window.gotoPage5Step = function (s) {
+  if (!isVisiblePage5Active()) return false;              // only while page 5 is the front page
+  p5Step = Math.max(0, Math.min(P5_STEPS.length - 1, s | 0));
+  updatePage5Spots();
+  showPage5Hand();
+  return true;
+};
+window.flipState = function () {
+  return {
+    page:  (typeof flipped === "number" ? flipped : 0),
+    total: totalPages,
+    step:  p5Step,
+    page5: isVisiblePage5Active(),
+    ready: !!(opened && ready)
+  };
+};
 
 /* ---- Progress read-out ("Page X / N") ----------------------------------- */
 function updateProgress() {

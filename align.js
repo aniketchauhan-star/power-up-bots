@@ -161,11 +161,21 @@
     var bOpen = button("Open book", "algn-nav");
     var bPrev = button("◀ Prev", "algn-nav");
     var bNext = button("Next ▶", "algn-nav");
-    bOpen.addEventListener("click", function () { if (typeof openBook === "function") openBook(); });
-    bPrev.addEventListener("click", function () { if (typeof goPrev === "function") goPrev(); });
-    bNext.addEventListener("click", function () { if (typeof goNext === "function") goNext(); });
+    bOpen.addEventListener("click", function () { if (typeof openBook === "function") { openBook(); setTimeout(renderNav, 6300); } });
+    bPrev.addEventListener("click", function () { if (typeof goPrev === "function") { goPrev(); setTimeout(renderNav, 1300); } });
+    bNext.addEventListener("click", function () { if (typeof goNext === "function") { goNext(); setTimeout(renderNav, 1300); } });
     nav.appendChild(bOpen); nav.appendChild(bPrev); nav.appendChild(bNext);
     bar.appendChild(nav);
+
+    // "Jump to screen" navigator — chips to hop straight to ANY page (and the
+    // page-5 shape steps) without flipping/tapping through. Filled by renderNav().
+    var navLabel = document.createElement("div");
+    navLabel.className = "algn-navlabel";
+    navLabel.textContent = "Jump to screen";
+    bar.appendChild(navLabel);
+    var chips = document.createElement("div");
+    chips.className = "algn-chips";
+    bar.appendChild(chips);
 
     var name = document.createElement("div");
     name.className = "algn-name";
@@ -224,7 +234,7 @@
 
     document.body.appendChild(bar);
     ui = { bar: bar, name: name, src: src, fx: fx.input, fy: fy.input,
-           fw: fw.input, fz: fz.input, msg: msg };
+           fw: fw.input, fz: fz.input, msg: msg, chips: chips };
   }
 
   function toast(t) {
@@ -252,6 +262,46 @@
       ui.fy.value = round(m.y);
       ui.fw.value = round(m.w);
       ui.fz.value = (m.z === "auto") ? "" : m.z;
+    }
+  }
+
+  /* ---- "Jump to screen" navigator ---------------------------------------- */
+  function chip(txt, on) {
+    var c = document.createElement("button");
+    c.type = "button"; c.className = "algn-chip"; c.textContent = txt;
+    c.addEventListener("click", function (e) { e.stopPropagation(); on(); });
+    return c;
+  }
+  function jumpTo(idx) {
+    if (typeof gotoPage !== "function") return;
+    if (gotoPage(idx)) { renderNav(); refreshToolbar(); return; }   // already open → snap
+    if (typeof openBook === "function") openBook();                 // else open, then jump
+    var tries = 0;
+    var iv = setInterval(function () {
+      if (gotoPage(idx)) { clearInterval(iv); renderNav(); refreshToolbar(); }
+      else if (++tries > 140) clearInterval(iv);                    // ~14s safety net
+    }, 100);
+  }
+  function renderNav() {
+    if (!ui.chips) return;
+    ui.chips.innerHTML = "";
+    var st = (typeof flipState === "function") ? flipState() : null;
+    var total = st ? st.total : 0;
+    for (var i = 0; i < total; i++) {
+      (function (idx) {
+        var c = chip("P" + (idx + 1), function () { jumpTo(idx); });
+        if (st && st.ready && st.page === idx) c.classList.add("cur");
+        ui.chips.appendChild(c);
+      })(i);
+    }
+    if (st && st.page5) {                                           // page-5 shape steps
+      ["▭ rect", "▤ green", "● circle"].forEach(function (lbl, s) {
+        var c = chip(lbl, function () {
+          if (typeof gotoPage5Step === "function") { gotoPage5Step(s); renderNav(); refreshToolbar(); }
+        });
+        if (st.step === s) c.classList.add("cur");
+        ui.chips.appendChild(c);
+      });
     }
   }
 
@@ -402,6 +452,7 @@
     document.addEventListener("pointerup", onPointerUp, true);
     applyLS();
     refreshToolbar();
+    renderNav();
     console.log("[align] ON — drag outlined items. Ctrl+Alt+A to toggle.");
   }
   function deactivate() {
@@ -458,6 +509,12 @@
       ".algn-btn:hover{ filter:brightness(1.15); }" +
       ".algn-save{ background:#2e9e5b; } .algn-reset{ background:#a23; } .algn-copy{ background:#2b6cb0; }" +
       ".algn-nav{ background:#3a2f5e; font-weight:600; }" +
+      ".algn-navlabel{ font-size:10px; color:#bcd; margin:2px 0 3px; }" +
+      ".algn-chips{ display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px; max-height:118px; overflow:auto; }" +
+      ".algn-chip{ cursor:pointer; border:1px solid #6E4FB8; background:#0f0820; color:#dcd6f5;" +
+        " border-radius:6px; padding:3px 7px; font:600 11px/1 system-ui,sans-serif; }" +
+      ".algn-chip:hover{ background:#2b1e50; }" +
+      ".algn-chip.cur{ background:#ffd400; color:#1c1030; border-color:#ffd400; }" +
       ".algn-msg{ min-height:14px; font-size:11px; color:#7CFF9B; opacity:0; transition:opacity .2s; }" +
       ".algn-msg.show{ opacity:1; }";
     var st = document.createElement("style");
