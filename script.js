@@ -430,6 +430,7 @@ function ctrlIntroEnded(c) {
   c.introDone = true;
   if (c.still) c.still.classList.add("show");      // freeze on the interactive shelf scene
   ctrlSpotEnabled(c, true);                        // the pink rectangle is now tappable
+  ctrlPreload(c);                                  // buffer + paint the reveal clip's first frame
   clearTimeout(c.handTimer);
   c.handTimer = setTimeout(function () {
     if (isCtrlActive(c) && !c.playing && !c.finished) ctrlShowHand(c);
@@ -451,6 +452,7 @@ function ctrlInit(c) {                              // page just settled → fre
     }
   } else {
     ctrlSpotEnabled(c, true);
+    ctrlPreload(c);                                // buffer + paint the reveal clip's first frame
     c.handTimer = setTimeout(function () { if (isCtrlActive(c) && !c.playing) ctrlShowHand(c); }, 600);
   }
 }
