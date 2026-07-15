@@ -283,6 +283,9 @@
   .corner-arrow:hover  { transform: scale(1.12); }
   .corner-arrow:active { transform: scale(0.9); }
   .corner-arrow[disabled] { opacity: 0.22; pointer-events: none; }
+  /* On page 1 there's nowhere back, so hide the back arrow entirely (it's
+     disabled there) instead of showing it faded. */
+  .corner-arrow.back[disabled] { display: none; }
   /* Hug the extreme corners (same offset on both sides → perfectly symmetric) so
      the enlarged arrows clear the book's bottom corners instead of overlapping them. */
   /* Same fixed corner offset on both sides → the back arrow is a perfect mirror
