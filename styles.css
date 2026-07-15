@@ -263,9 +263,16 @@
      no rounded pill. Only the arrow glyph shows, same position/size, clickable. */
   /* Flip arrows OUTSIDE the book, fixed at the viewport's bottom corners. */
   .corner-arrow {
-    position: fixed; bottom: -26px; z-index: 700;   /* fixed (not clamp) → identical on every screen */
-    width: 170px; height: 170px;   /* FIXED px (not vw) so both arrows are the SAME size on
-                                      every laptop / resolution instead of shrinking with width */
+    /* Size + vertical offset are computed in JS (layoutArrows) and published on
+       :root as --arrow-size / --arrow-bottom / --arrow-inset. Rather than scaling
+       blindly with --book-scale (which made the arrows balloon into the book's
+       bottom corners on tall 16:9 screens), layoutArrows fits each arrow into the
+       clear band BELOW the book — so they always clear it on every screen shape.
+       The values below are only fallbacks used before the first measurement. */
+    position: fixed; z-index: 700;
+    bottom: calc(var(--arrow-bottom, 8px) - 24px);   /* nudge both arrows slightly lower */
+    width:  var(--arrow-size, 500px);
+    height: var(--arrow-size, 500px);
     border: none; background: none; color: #1E2A55;   /* deep navy — matches the book's top cover blue */
     filter: drop-shadow(0 2px 7px rgba(0,0,0,0.55));           /* legible over any page */
     display: none; align-items: center; justify-content: center;
@@ -280,8 +287,14 @@
      the enlarged arrows clear the book's bottom corners instead of overlapping them. */
   /* Same fixed corner offset on both sides → the back arrow is a perfect mirror
      of the next arrow (identical size + vertical position, mirrored horizontally). */
-  .corner-arrow.back { left:  14px; }
-  .corner-arrow.fwd  { right: 14px; }
+  /* Both arrows enlarged 1.4× vs the auto-fitted size (scales with the responsive
+     --arrow-size so they still track the gap below the book, just bigger). */
+  .corner-arrow.back { left:  var(--arrow-inset, 14px);
+                       width:  calc(var(--arrow-size, 500px) * 1.4);
+                       height: calc(var(--arrow-size, 500px) * 1.4); }
+  .corner-arrow.fwd  { right: var(--arrow-inset, 14px);
+                       width:  calc(var(--arrow-size, 500px) * 1.4);
+                       height: calc(var(--arrow-size, 500px) * 1.4); }
   .corner-arrow svg  { width: 58%; height: 58%; }
   .corner-arrow.back svg { transform: scaleX(-1); }   /* mirror the forward arrow */
 

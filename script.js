@@ -600,10 +600,55 @@ let videoStartTimer = null;  // pending "start the landed page's video" timeout 
 
 /* ---- Responsive: scale the FIXED 1280x720 book to fit the viewport --------
    only this CSS transform scale changes, so the paper curl is never distorted. */
+let bookScale = 0.5;
 function fitScale() {
   const s = Math.min((window.innerWidth  * 0.96) / 1280,
                      (window.innerHeight * 0.84) / 720);
+  bookScale = s;
   flipScaleEl.style.setProperty("--book-scale", s.toFixed(4));
+  // Also publish the scale on :root so the viewport-FIXED corner arrows (which
+  // live OUTSIDE #flipScale) can scale by the SAME factor as the book + play
+  // button. This keeps the arrow↔book↔play-button ratio identical on every
+  // screen / resolution / zoom instead of the arrows drifting bigger on small
+  // screens and smaller on large ones.
+  document.documentElement.style.setProperty("--book-scale", s.toFixed(4));
+  layoutArrows();
+}
+
+/* ---- Fit the corner flip-arrows into the clear band BELOW the book --------
+   The arrows are viewport-fixed in the bottom corners. Sizing them purely by
+   --book-scale made them balloon on tall 16:9 screens (big scale) where the gap
+   below the book is small, so their tops overlapped the book's bottom corners.
+   Instead we MEASURE the book's on-screen box and fit each arrow's glyph into
+   the gap between the book's bottom edge and the viewport bottom — guaranteeing
+   the arrow always clears the book, while staying as large as the gap allows so
+   it never looks tiny. Recomputed on every fitScale (load / resize / rotate). */
+function layoutArrows() {
+  if (!flipScaleEl) return;
+  const r = flipScaleEl.getBoundingClientRect();
+  if (!r.height) return;
+
+  const RATIO         = 0.58;              // the <svg> is 58% of the button (see CSS)
+  const BOTTOM_MARGIN = 12;                // glyph → viewport bottom
+  const CLEARANCE     = 12;                // min space between glyph top and book bottom
+  const overhang      = 16 * bookScale;    // .book-frame sits inset:-16px in the scaled layer
+  const bookBottom    = r.bottom + overhang;
+  const gap           = Math.max(0, window.innerHeight - bookBottom);
+
+  // Keep the old arrow↔book proportion, but never taller than the gap allows.
+  let glyph = Math.min(RATIO * 150 * bookScale, gap - CLEARANCE - BOTTOM_MARGIN);
+  glyph = Math.max(glyph, 44);             // stay tappable even in a shallow gap
+  const button = glyph / RATIO;
+
+  // The glyph is vertically centred in the button, so offset the button's
+  // `bottom` to land the glyph BOTTOM_MARGIN above the viewport bottom.
+  const buttonBottom = BOTTOM_MARGIN - (button - glyph) / 2;
+  const inset        = Math.round(Math.max(12, 16 * bookScale));
+
+  const root = document.documentElement.style;
+  root.setProperty("--arrow-size",   button.toFixed(1) + "px");
+  root.setProperty("--arrow-bottom", buttonBottom.toFixed(1) + "px");
+  root.setProperty("--arrow-inset",  inset + "px");
 }
 
 /* ---- Render / stacking for the CSS leaf flip ---------------------------- */
@@ -828,6 +873,9 @@ function openBook() {
   // Reveal the REAL page right away (it sits beneath the cover, masked by it) so
   // as the cover lifts, the actual first page is what shows underneath.
   flipbookEl.classList.add("show");
+  // The arrows only become visible now (body.is-open); re-fit them to the book's
+  // settled position (the entrance animation has finished by the time PLAY is hit).
+  requestAnimationFrame(layoutArrows);
   // Tapping PLAY is a user gesture, so we can start audio here: turn sound ON and
   // play the dedicated COVER-flip sound (sfx/cover page flip.mp3).
   soundOn();
