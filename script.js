@@ -379,6 +379,20 @@ function ctrlStopVideo(c) {
   if (c.video) { try { c.video.pause(); c.video.removeAttribute("src"); c.video.load(); } catch (_) {} }
   c.playing = false;
 }
+/* Preload the reveal clip and paint its first frame NOW, so tapping plays it
+   instantly instead of flashing the black overlay while the clip decodes. */
+function ctrlPreload(c) {
+  if (!c.video || !c.cfg.video) return;
+  try {
+    if (c.video.getAttribute("src") !== c.cfg.video) c.video.src = c.cfg.video;
+    c.video.preload = "auto";
+    c.video.load();
+    const v = c.video;
+    const paint = function () { try { if (v.currentTime < 0.01) v.currentTime = 0.04; } catch (_) {} };
+    if (v.readyState >= 2) paint();                 // data ready → decode frame 0 now
+    else v.addEventListener("loadeddata", paint, { once: true });
+  } catch (_) {}
+}
 /* Tap → play the clip full-page ON TOP of the static image. */
 function ctrlClick(c) {
   if (c.playing || c.finished || !isCtrlActive(c)) return;    // one play per visit; no replay
@@ -393,7 +407,7 @@ function ctrlClick(c) {
   if (base) { try { base.pause(); } catch (_) {} }
   c.overlay.classList.add("show");
   try {
-    c.video.src = c.cfg.video;
+    if (c.video.getAttribute("src") !== c.cfg.video) c.video.src = c.cfg.video;   // usually preloaded already
     c.video.currentTime = 0;
     c.video.muted = false;                         // the tap is a user gesture → sound allowed
     const p = c.video.play();
